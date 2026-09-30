@@ -293,7 +293,9 @@ export function aiChooseOrder(state: GameState, side: Side): Order {
   const aggr = side === 'RU' ? 1.0 : 0.9;
 
   // ---- атаки (у «звичайному» режимі ШІ дає людині кілька тижнів на підготовку)
-  const grace = state.config.difficulty === 'normal' && state.config.controllers[other(side)] === 'human' && state.turn < CFG.ai.normalGraceTurns;
+  const vsHuman = state.config.controllers[other(side)] === 'human';
+  const diff = CFG.difficulty[state.config.difficulty];
+  const grace = vsHuman && state.turn < diff.graceTurns;
   for (const from of grace ? [] : own) {
     const r = state.regions[from];
     const spareTroops = r.troops - Math.max(plan.defNeed[from] * 0.8, CFG.minGarrison * 3);
@@ -304,7 +306,7 @@ export function aiChooseOrder(state: GameState, side: Side): Order {
         const committed = Math.floor(spareTroops * f);
         if (committed < 200) continue;
         const est = estimateBattle(state, from, to, committed);
-        const minRatio = 0.98 / aggr;
+        const minRatio = (0.98 / aggr) * (vsHuman ? diff.aiMinRatioMul : 1);
         if (est.ratio < minRatio) continue;
         const cap = est.captured ? regionValue(state, side, to) : 0;
         const value = est.killsDefenders - 0.85 * est.killsAttackers * mods.ownLoss + cap * 0.9;

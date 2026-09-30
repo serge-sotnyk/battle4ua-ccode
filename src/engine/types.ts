@@ -119,7 +119,7 @@ export interface BelarusState {
   active: boolean;
 }
 
-export type Difficulty = 'normal' | 'hard';
+export type Difficulty = 'easy' | 'normal' | 'hard';
 export type Controller = 'human' | 'ai';
 
 export interface LogEntry {

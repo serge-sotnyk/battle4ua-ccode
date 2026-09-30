@@ -192,5 +192,20 @@ hr.sep { border: 0; border-top: 1px solid var(--line); margin: 8px 0; }
 
 @media (max-width: 900px) {
   #layout { flex-direction: column; }
-  #side { width: 100%; max-width: none; max-height: 45vh; border-left: 0; border-top: 1px solid var(--line); }
+  #mapwrap { flex: 0 0 56vh; }
+  #side { width: 100%; max-width: none; flex: 1; border-left: 0; border-top: 1px solid var(--line); }
+}
+@media (max-width: 640px) {
+  :root { font-size: 14px; }
+  #topbar { padding: 6px 10px; gap: 6px; min-height: 0; }
+  #topbar .title small, #topbar .support-links, #topbar .mini { display: none; }
+  #topbar .date { font-size: .8rem; }
+  #topbar .tbtn { padding: 3px 8px; font-size: .8rem; }
+  #zoomctl button { width: 30px; height: 30px; }
+  #actionbar { top: auto; bottom: 34px; left: 8px; right: 8px; gap: 6px; }
+  .abox { padding: 4px 8px; font-size: .78rem; }
+  .abox input[type=range], .abox label.mini { display: none; }
+  .btnrow.tools { grid-template-columns: 1fr 1fr; }
+  .tech-cols { grid-template-columns: 1fr; }
+  .modal { padding: 14px; }
 }

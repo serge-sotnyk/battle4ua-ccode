@@ -45,9 +45,8 @@ export interface BattleMath {
 }
 
 function aiLossPenalty(state: GameState, side: Side): number {
-  if (state.config.difficulty !== 'normal') return 1;
   const c = state.config.controllers;
-  if (c[side] === 'ai' && c[other(side)] === 'human') return CFG.combat.normalModeAiLossMul;
+  if (c[side] === 'ai' && c[other(side)] === 'human') return CFG.difficulty[state.config.difficulty].aiLossMul;
   return 1;
 }
 

@@ -68,13 +68,15 @@ describe('Білорусь', () => {
 describe('режими складності', () => {
   it('у «звичайному» режимі людина отримує бонусний наказ, ШІ — ні', () => {
     const s = createGame({ seed: 3, difficulty: 'normal', controllers: { UA: 'human', RU: 'ai' } });
-    expect(ordersFor(s, 'UA')).toBe(getMods(s, 'UA').orders + CFG.humanBonusOrders);
+    expect(ordersFor(s, 'UA')).toBe(getMods(s, 'UA').orders + CFG.difficulty.normal.humanBonusOrders);
     expect(ordersFor(s, 'RU')).toBe(getMods(s, 'RU').orders);
     const h = createGame({ seed: 3, difficulty: 'hard', controllers: { UA: 'human', RU: 'ai' } });
     expect(ordersFor(h, 'UA')).toBe(getMods(h, 'UA').orders);
+    const e = createGame({ seed: 3, difficulty: 'easy', controllers: { UA: 'human', RU: 'ai' } });
+    expect(ordersFor(e, 'UA')).toBe(getMods(e, 'UA').orders + 2);
   });
 
-  it('ШІ не атакує людину перші тижні звичайного режиму', () => {
+  it('ШІ не атакує людину перші тижні (тривалість залежить від складності)', () => {
     const s = createGame({ seed: 9, difficulty: 'normal', controllers: { UA: 'human', RU: 'ai' } });
     s.activeSide = 'RU';
     s.ordersLeft = 4;

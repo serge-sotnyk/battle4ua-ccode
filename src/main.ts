@@ -1,5 +1,6 @@
 import './ui/style.css';
 import { forecastStrike } from './engine/strikes';
+import { aiChooseOrder } from './engine/ai';
 import { REGION_BY_ID, other } from './engine/selectors';
 import { MapView } from './ui/map';
 import {
@@ -27,7 +28,7 @@ let mapView: MapView | null = null;
 let strikeArgs: StrikeArgs | null = null;
 let opsPick: { op: string; target?: string } | undefined;
 let ngSide: Side | 'both' | 'none' = 'UA';
-let ngDiff: 'normal' | 'hard' = 'normal';
+let ngDiff: 'easy' | 'normal' | 'hard' = 'normal';
 let shownOutcome = false;
 let lastTicker = '';
 let rafPending = false;
@@ -497,6 +498,6 @@ function ensureMapPlaceholder(): void {
 }
 
 // доступ із консолі для налагодження
-(window as unknown as { __b4ua: unknown }).__b4ua = { store, REGION_BY_ID };
+(window as unknown as { __b4ua: unknown }).__b4ua = { store, REGION_BY_ID, ai: aiChooseOrder };
 
 boot();

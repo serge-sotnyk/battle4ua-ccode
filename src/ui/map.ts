@@ -375,12 +375,14 @@ export class MapView {
     if (dashed) line.setAttribute('stroke-dasharray', '6 5');
     const anim = line.animate([{ opacity: 1 }, { opacity: 0 }], { duration: dur, easing: 'ease-in' });
     anim.onfinish = () => line.remove();
+    setTimeout(() => line.remove(), dur + 300);
   }
 
   private pulse(p: [number, number], color: string, r: number, dur: number): void {
     const c = el('circle', { class: 'fx-pulse', cx: p[0], cy: p[1], r: 4, fill: color, 'fill-opacity': 0.35, stroke: color, 'stroke-width': 2, 'vector-effect': 'non-scaling-stroke' }, this.fxLayer);
     const anim = c.animate([{ r: 4, opacity: 1 }, { r, opacity: 0 }], { duration: dur, easing: 'ease-out' });
     anim.onfinish = () => c.remove();
+    setTimeout(() => c.remove(), dur + 300);
   }
 
   private floatText(p: [number, number], text: string, color: string, dy: number): void {
@@ -388,6 +390,7 @@ export class MapView {
     t.textContent = text;
     const anim = t.animate([{ transform: 'translateY(0)', opacity: 1 }, { transform: 'translateY(-18px)', opacity: 0 }], { duration: 1300, easing: 'ease-out' });
     anim.onfinish = () => t.remove();
+    setTimeout(() => t.remove(), 1600);
   }
 
   private missile(a: [number, number], b: [number, number], color: string, hits: number): void {
@@ -395,12 +398,17 @@ export class MapView {
     const my = (a[1] + b[1]) / 2 - Math.hypot(b[0] - a[0], b[1] - a[1]) * 0.22;
     const path = el('path', { class: 'fx-line', d: `M${a[0]},${a[1]} Q${mx},${my} ${b[0]},${b[1]}`, stroke: color, 'stroke-width': 2.4, 'stroke-dasharray': '7 6', 'vector-effect': 'non-scaling-stroke' }, this.fxLayer);
     const anim = path.animate([{ opacity: 0.2 }, { opacity: 1 }, { opacity: 0 }], { duration: 1100 });
-    anim.onfinish = () => {
+    let done = false;
+    const boom = () => {
+      if (done) return;
+      done = true;
       path.remove();
       this.pulse(b, '#ffb347', 40, 900);
       this.pulse(b, '#ff5a4a', 22, 650);
       this.floatText(b, `💥 ${hits}`, '#ffe0a0', 0);
     };
+    anim.onfinish = boom;
+    setTimeout(boom, 1200);
   }
 }
 

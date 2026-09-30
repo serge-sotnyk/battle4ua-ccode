@@ -10,8 +10,6 @@ export const CFG = {
   /** Ліміт партії: приблизно 3 роки → «перемир'я по лінії». */
   maxTurns: 156,
   baseOrders: 4,
-  /** Поблажка людині у «звичайному» режимі. */
-  humanBonusOrders: 1,
   /** Менше цього в області не лишається після наказів. */
   minGarrison: 50,
 
@@ -23,8 +21,6 @@ export const CFG = {
     collapse: 0.4,
     /** Частка залишків оборонців, що відступає, а не гине. */
     retreatKeep: 0.55,
-    /** Штраф для ШІ у «звичайному» режимі (як в оригіналі): його втрати більші. */
-    normalModeAiLossMul: 1.25,
     /** Вплив стійкості на ефективність: 0.85 + 0.15·res/100 */
     moraleBase: 0.85,
     riverDefense: 1.12,
@@ -140,10 +136,16 @@ export const CFG = {
     slots: 2,
   },
 
-  ai: {
-    /** У «звичайному» режимі ШІ не атакує людину перші N тижнів — час розкластися. */
-    normalGraceTurns: 2,
-  },
+  /**
+   * Складність. Діє лише проти людини: aiLossMul — множник втрат ШІ (як «пенальті» оригіналу),
+   * humanBonusOrders — додаткові накази людини, graceTurns — скільки тижнів ШІ не атакує,
+   * aiMinRatioMul — обережність ШІ в атаках.
+   */
+  difficulty: {
+    easy: { label: 'Легка', aiLossMul: 1.5, humanBonusOrders: 2, graceTurns: 6, aiMinRatioMul: 1.3 },
+    normal: { label: 'Звичайна', aiLossMul: 1.25, humanBonusOrders: 1, graceTurns: 2, aiMinRatioMul: 1.0 },
+    hard: { label: 'Тяжка', aiLossMul: 1.0, humanBonusOrders: 0, graceTurns: 0, aiMinRatioMul: 1.0 },
+  } as Record<'easy' | 'normal' | 'hard', { label: string; aiLossMul: number; humanBonusOrders: number; graceTurns: number; aiMinRatioMul: number }>,
 
   ad: {
     maxLevel: 4,

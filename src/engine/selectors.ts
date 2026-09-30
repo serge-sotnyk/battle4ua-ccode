@@ -57,10 +57,10 @@ export function invalidateMods(state: GameState): void {
   MODS_CACHE.delete(state);
 }
 
-/** Накази на тиждень: технології + поблажка людині у «звичайному» режимі. */
+/** Накази на тиждень: технології + поблажка людині залежно від складності. */
 export function ordersFor(state: GameState, side: Side): number {
   const human = state.config.controllers[side] === 'human' && state.config.controllers[other(side)] === 'ai';
-  return getMods(state, side).orders + (human && state.config.difficulty === 'normal' ? CFG.humanBonusOrders : 0);
+  return getMods(state, side).orders + (human ? CFG.difficulty[state.config.difficulty].humanBonusOrders : 0);
 }
 
 // ---------------------------------------------------------------- дата і сезон
