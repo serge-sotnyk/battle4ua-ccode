@@ -29,8 +29,24 @@ let strikeArgs: StrikeArgs | null = null;
 let opsPick: { op: string; target?: string } | undefined;
 let ngSide: Side | 'both' | 'none' = 'UA';
 let ngDiff: 'easy' | 'normal' | 'hard' = 'normal';
+let ngScen = 'oct-2026';
 let shownOutcome = false;
 let lastTicker = '';
+let endConfirmUntil = 0;
+
+/** Завершення ходу: якщо лишилися невикористані накази — просимо підтвердити повторним натисканням. */
+function requestEndTurn(): void {
+  if (!store.isHumanTurn()) return;
+  const left = store.state.ordersLeft;
+  const now = Date.now();
+  if (left > 0 && now > endConfirmUntil) {
+    endConfirmUntil = now + 3500;
+    store.toast(`Лишилось невикористаних наказів: ${left}. Натисніть ще раз, щоб завершити хід.`, 'info');
+    return;
+  }
+  endConfirmUntil = 0;
+  store.dispatch({ type: 'endTurn' });
+}
 let rafPending = false;
 
 // ---------------------------------------------------------------- відмальовування
@@ -260,7 +276,7 @@ function handleAct(el: HTMLElement, type: string): void {
 
   switch (act) {
     case 'end-turn':
-      store.dispatch({ type: 'endTurn' });
+      requestEndTurn();
       break;
     case 'undo':
       store.undo();
@@ -349,6 +365,10 @@ function handleAct(el: HTMLElement, type: string): void {
       ngSide = v as typeof ngSide;
       modals.open('newgame', () => newGameModal(store, store.hasSave(), { first: !store.hasGame }), { closable: store.hasGame, wide: 'mid' });
       break;
+    case 'ng-scen':
+      ngScen = v!;
+      modals.open('newgame', () => newGameModal(store, store.hasSave(), { first: !store.hasGame }), { closable: store.hasGame, wide: 'mid' });
+      break;
     case 'ng-diff':
       ngDiff = v as typeof ngDiff;
       modals.open('newgame', () => newGameModal(store, store.hasSave(), { first: !store.hasGame }), { closable: store.hasGame, wide: 'mid' });
@@ -358,7 +378,7 @@ function handleAct(el: HTMLElement, type: string): void {
       const seed = seedTxt ? hashSeed(seedTxt) : undefined;
       modals.close();
       shownOutcome = false;
-      store.newGame({ humanSide: ngSide, difficulty: ngDiff, seed });
+      store.newGame({ humanSide: ngSide, difficulty: ngDiff, scenario: ngScen, seed });
       ensureMap();
       mapView?.resetView();
       renderAll();
@@ -424,7 +444,11 @@ document.querySelectorAll<HTMLElement>('#zoomctl button').forEach((b) => {
     if (z === 'in') mapView?.zoomBy(1.4);
     else if (z === 'out') mapView?.zoomBy(1 / 1.4);
     else if (z === 'reset') mapView?.resetView();
-    else if (z === 'facilities') {
+    else if (z === 'legend') {
+      const lg = $('legend');
+      lg.hidden = !lg.hidden;
+      b.classList.toggle('on', !lg.hidden);
+    } else if (z === 'facilities') {
       store.settings.showFacilities = !store.settings.showFacilities;
       store.saveSettings();
       store.notify();
@@ -441,7 +465,7 @@ document.addEventListener('keydown', (e) => {
   const k = e.key.toLowerCase();
   if (k === ' ') {
     e.preventDefault();
-    if (store.isHumanTurn()) store.dispatch({ type: 'endTurn' });
+    requestEndTurn();
   } else if (k === 'z') {
     store.undo();
   } else if (k >= '1' && k <= '4') {
@@ -478,6 +502,7 @@ function openNewGame(first: boolean): void {
   const last = store.settings.lastConfig;
   ngSide = (last.humanSide ?? 'UA') as typeof ngSide;
   ngDiff = (last.difficulty ?? 'normal') as typeof ngDiff;
+  ngScen = last.scenario ?? 'oct-2026';
   modals.open('newgame', () => newGameModal(store, store.hasSave(), { first }), { closable: !first, wide: 'mid' });
 }
 

@@ -117,10 +117,10 @@ const EVENTS: EventDef[] = [
     weight: () => 0.5,
     run: (s) => {
       const side = chance(s, 0.5) ? 'UA' : 'RU';
-      const list = facilitiesOfType(s, side, 'power_plant');
+      const list = facilitiesOfType(s, side, 'power_plant').filter((f) => f.hp > 12);
       if (!list.length) return null;
       const f = pickOne(s, list);
-      s.regions[f.region].facilities[f.def.id] = Math.max(20, f.hp - 12);
+      s.regions[f.region].facilities[f.def.id] = Math.max(0, f.hp - 12);
       log(s, `Негода пошкодила лінії електропередач біля «${f.def.name}» (−12%).`, f.region);
       return null;
     },

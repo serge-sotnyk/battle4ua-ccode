@@ -11,6 +11,10 @@ const n = Number(args.find((a) => /^\d+$/.test(a)) ?? 6);
 const verbose = args.includes('--verbose');
 // --normal: УА керує «людина» (тут — той самий ШІ), а РФ отримує штраф звичайного режиму
 const normal = args.includes('--normal');
+const scenario = args.includes('--feb') ? 'feb-2022' : 'oct-2026';
+// --ru: РФ керує «людина» (той самий ШІ), УА — ШІ з поблажками складності
+const ruHuman = args.includes('--ru');
+const diffArg = (args.find((a) => a.startsWith('--diff=')) ?? '--diff=').slice(7);
 
 function summary(s: GameState): string {
   let uaReg = 0;
@@ -22,13 +26,13 @@ function summary(s: GameState): string {
     }
   }
   const t = s.sides;
-  return `T${String(s.turn).padStart(3)} ${formatDate(s.turn).padEnd(18)} UA:${String(Math.round(totalTroops(s, 'UA') / 1000)).padStart(3)}k res ${t.UA.resilience.toFixed(0).padStart(3)} pp ${t.UA.pp.toFixed(0).padStart(3)} | RU:${String(Math.round(totalTroops(s, 'RU') / 1000)).padStart(3)}k res ${t.RU.resilience.toFixed(0).padStart(3)} pp ${t.RU.pp.toFixed(0).padStart(3)} | UA-земля ${uaReg}/${uaReg + ruInUa} BY:${s.belarus.active ? 'так' : s.belarus.tension.toFixed(0)}`;
+  return `T${String(s.turn).padStart(3)} ${formatDate(s).padEnd(18)} UA:${String(Math.round(totalTroops(s, 'UA') / 1000)).padStart(3)}k res ${t.UA.resilience.toFixed(0).padStart(3)} pp ${t.UA.pp.toFixed(0).padStart(3)} | RU:${String(Math.round(totalTroops(s, 'RU') / 1000)).padStart(3)}k res ${t.RU.resilience.toFixed(0).padStart(3)} pp ${t.RU.pp.toFixed(0).padStart(3)} | UA-земля ${uaReg}/${uaReg + ruInUa} BY:${s.belarus.active ? 'так' : s.belarus.tension.toFixed(0)}`;
 }
 
 const results: Record<string, number> = {};
 let totalTurns = 0;
 for (let i = 0; i < n; i++) {
-  const s = createGame({ seed: 1000 + i, difficulty: normal ? 'normal' : 'hard', controllers: { UA: normal ? 'human' : 'ai', RU: 'ai' } });
+  const s = createGame({ seed: 1000 + i, scenario, difficulty: (diffArg || (normal ? 'normal' : 'hard')) as 'easy' | 'normal' | 'hard', controllers: ruHuman ? { UA: 'ai', RU: 'human' } : { UA: normal ? 'human' : 'ai', RU: 'ai' } });
   if (args.includes('--boost')) {
     // «умілий гравець»: +2 наказів на тиждень
     s.sides.UA.effects.push({ id: 'boost', key: 'orders', value: 2, turnsLeft: 9999, label: 'boost' });

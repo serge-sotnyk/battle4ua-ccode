@@ -133,6 +133,8 @@ export interface LogEntry {
 export interface GameOutcome {
   winner: Side | 'draw';
   reason: string;
+  /** Скільки тижнів тривала партія (для підсумкового екрана). */
+  weeks?: number;
 }
 
 export interface GameConfig {
@@ -145,6 +147,8 @@ export interface GameConfig {
 export interface GameState {
   version: number;
   config: GameConfig;
+  /** Понеділок першого ходу (ISO-дата). */
+  startDate: string;
   turn: number;
   /** Генератор випадкових чисел (стан mulberry32). */
   rng: number;

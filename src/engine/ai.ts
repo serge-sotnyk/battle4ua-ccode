@@ -14,6 +14,7 @@ import {
   ALL_REGION_IDS,
   REGION_BY_ID,
   adjacentEnemyTroops,
+  difficultyParams,
   friendlyDistances,
   getMods,
   isFront,
@@ -76,7 +77,7 @@ function attackPotential(state: GameState, id: string): number {
     const nr = state.regions[n];
     if (nr.owner !== foe) continue;
     if (attackError(state, foe, n, id)) continue;
-    s += nr.troops * 0.7 * mF.atk * moraleFactor(state, foe) * seasonAttackMod(state.turn) * fuelFactor(state, foe) * airFactor(state, foe);
+    s += nr.troops * 0.7 * mF.atk * moraleFactor(state, foe) * seasonAttackMod(state) * fuelFactor(state, foe) * airFactor(state, foe);
   }
   return s;
 }
@@ -114,7 +115,7 @@ function computePlan(state: GameState, side: Side): AiPlan {
 
   // наступальні цілі: 1–2 найвигідніші
   const mods = getMods(state, side);
-  const atkPerUnit = mods.atk * moraleFactor(state, side) * seasonAttackMod(state.turn) * fuelFactor(state, side) * airFactor(state, side);
+  const atkPerUnit = mods.atk * moraleFactor(state, side) * seasonAttackMod(state) * fuelFactor(state, side) * airFactor(state, side);
   const objectives: Array<{ from: string; to: string; need: number; score: number }> = [];
   for (const from of own) {
     for (const to of neighborsOf(from)) {
@@ -293,8 +294,8 @@ export function aiChooseOrder(state: GameState, side: Side): Order {
   const aggr = side === 'RU' ? 1.0 : 0.9;
 
   // ---- атаки (у «звичайному» режимі ШІ дає людині кілька тижнів на підготовку)
-  const vsHuman = state.config.controllers[other(side)] === 'human';
-  const diff = CFG.difficulty[state.config.difficulty];
+  const vsHuman = state.config.controllers[other(side)] === 'human' && state.config.controllers[side] === 'ai';
+  const diff = difficultyParams(state);
   const grace = vsHuman && state.turn < diff.graceTurns;
   for (const from of grace ? [] : own) {
     const r = state.regions[from];

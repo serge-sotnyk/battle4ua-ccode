@@ -56,6 +56,7 @@ export function applyOrder(state: GameState, order: Order): OrderResult {
   if (res.ok && order.type !== 'endTurn') {
     const outcome = evaluateOutcome(state);
     if (outcome) {
+      outcome.weeks = state.turn + 1; // партія обірвалася посеред тижня
       state.outcome = outcome;
       pushLog(state, { side: 'world', kind: 'info', text: `Кінець гри: ${outcome.reason}` });
     }
@@ -137,13 +138,13 @@ function execute(state: GameState, side: Side, order: Order): OrderResult {
     }
     case 'policy': {
       const s = state.sides[side];
-      if (order.mobilization !== undefined) {
-        if (order.mobilization < 0 || order.mobilization > 3) return fail('Невірний рівень мобілізації.');
-        s.mobilization = Math.round(order.mobilization);
-      }
+      const mob = order.mobilization ?? s.mobilization;
       const d = order.allocDrones ?? s.allocDrones;
       const m = order.allocMissiles ?? s.allocMissiles;
+      if (![mob, d, m].every(Number.isFinite)) return fail('Невірні значення політики.');
+      if (mob < 0 || mob > 3) return fail('Невірний рівень мобілізації.');
       if (d < 0 || m < 0 || d + m > 100) return fail('Сума часток не може перевищувати 100%.');
+      s.mobilization = Math.round(mob);
       s.allocDrones = Math.round(d);
       s.allocMissiles = Math.round(m);
       return { ok: true };

@@ -3,9 +3,10 @@
 import { CFG } from './config';
 import { REGION_DEFS } from './map/regions';
 import { invalidateMods, ordersFor } from './selectors';
+import { FEB_2022, SCENARIO_BY_ID, type ScenarioOverrides } from './scenarios';
 import type { GameConfig, GameState, RegionState, Side, SideState } from './types';
 
-export const GAME_VERSION = 1;
+export const GAME_VERSION = 2;
 
 type Start = { owner: 'UA' | 'RU' | 'BY'; troops: number; ad?: number; fort?: number };
 
@@ -126,9 +127,12 @@ export function createGame(partial: Partial<GameConfig> = {}): GameState {
       aaSabotage: 0,
     };
   }
+  const meta = SCENARIO_BY_ID[config.scenario] ?? SCENARIO_BY_ID['oct-2026'];
+  config.scenario = meta.id;
   const state: GameState = {
     version: GAME_VERSION,
     config,
+    startDate: meta.startDate,
     turn: 0,
     rng: config.seed | 0 || 1,
     activeSide: 'UA',
@@ -141,8 +145,35 @@ export function createGame(partial: Partial<GameConfig> = {}): GameState {
     outcome: null,
     flags: {},
   };
+  if (meta.id === 'feb-2022') applyOverrides(state, FEB_2022);
   invalidateMods(state);
   state.ordersLeft = ordersFor(state, 'UA');
-  state.log.push({ turn: 0, side: 'world', kind: 'info', text: 'Початок кампанії: жовтень 2026. Тиждень — один хід.' });
+  state.log.push({ turn: 0, side: 'world', kind: 'info', text: meta.id === 'feb-2022' ? FEB_2022.intro : 'Початок кампанії: жовтень 2026. Тиждень — один хід.' });
   return state;
+}
+
+function applyOverrides(state: GameState, ov: ScenarioOverrides): void {
+  for (const [id, o] of Object.entries(ov.regions)) {
+    const r = state.regions[id];
+    if (!r) throw new Error(`Сценарій посилається на невідомий регіон ${id}`);
+    if (o.owner) r.owner = o.owner;
+    if (o.troops !== undefined) r.troops = o.troops;
+    if (o.ad !== undefined) r.ad = o.ad;
+    if (o.fort !== undefined) r.fort = o.fort;
+  }
+  for (const side of ['UA', 'RU'] as Side[]) {
+    const so = ov.sides[side];
+    if (!so) continue;
+    const s = state.sides[side];
+    if (so.pp !== undefined) s.pp = so.pp;
+    if (so.support !== undefined) s.support = so.support;
+    if (so.resilience !== undefined) s.resilience = so.resilience;
+    if (so.drones !== undefined) s.drones = so.drones;
+    if (so.missiles !== undefined) s.missiles = so.missiles;
+    if (so.techs) s.techs = [...so.techs];
+    if (so.allocDrones !== undefined) s.allocDrones = so.allocDrones;
+    if (so.allocMissiles !== undefined) s.allocMissiles = so.allocMissiles;
+  }
+  state.belarus.tension = ov.tension;
+  state.ticker = [ov.ticker];
 }

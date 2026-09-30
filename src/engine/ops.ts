@@ -65,13 +65,13 @@ export const OPS: OpDef[] = [
     cooldown: 18,
     requires: ['sea_drones'],
     target: 'none',
-    desc: 'Морські дрони й підводні заряди. Міст зруйновано — Крим відрізано від залізничного й автомобільного сполучення, поки його не відновлять.',
+    desc: 'Морські дрони й підводні заряди. Міст зруйновано приблизно на 5 тижнів: перекидання між Кубанню й Кримом неможливе, а війська Криму слабшають без постачання.',
     apply: (state, side) => {
-      dmgFacility(state, 'kerch_bridge', 85);
+      dmgFacility(state, 'kerch_bridge', 100);
       const foe = state.sides[other(side)];
       foe.resilience = Math.max(0, foe.resilience - 1.5);
       state.sides[side].resilience = Math.min(100, state.sides[side].resilience + 1);
-      return 'Кримський міст пошкоджено. Підкріплення до Криму перекидати нікуди.';
+      return 'Кримський міст зруйновано. Постачання Криму через Керченську протоку перервано.';
     },
   },
   {
@@ -195,6 +195,8 @@ export function startOperation(state: GameState, side: Side, opId: string, targe
 export function progressOps(state: GameState): void {
   for (const side of ['UA', 'RU'] as Side[]) {
     const s = state.sides[side];
+    // перезарядки спливають до розгляду нових завершень, щоб значення cooldown було точним
+    for (const k of Object.keys(s.opCooldown)) if (s.opCooldown[k] > 0) s.opCooldown[k] -= 1;
     const foeIntel = getMods(state, other(side)).intel;
     const keep: typeof s.ops = [];
     for (const job of s.ops) {
@@ -218,7 +220,5 @@ export function progressOps(state: GameState): void {
       }
     }
     s.ops = keep;
-    for (const k of Object.keys(s.opCooldown)) if (s.opCooldown[k] > 0) s.opCooldown[k] -= 1;
   }
 }
-

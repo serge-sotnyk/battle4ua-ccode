@@ -5,6 +5,7 @@ import { REGION_DEFS } from './map/regions';
 import { geoDistanceKm } from './map/geometry';
 import { CFG } from './config';
 import { computeMods } from './techs';
+import type { DifficultyParams } from './config';
 import type { FacilityDef, FacilityType, GameState, Mods, Owner, RegionDef, Side } from './types';
 
 // ---------------------------------------------------------------- карта (синглтон)
@@ -57,10 +58,36 @@ export function invalidateMods(state: GameState): void {
   MODS_CACHE.delete(state);
 }
 
-/** Накази на тиждень: технології + поблажка людині залежно від складності. */
+const NEUTRAL_DIFFICULTY: DifficultyParams = {
+  label: '—', aiLossMul: 1, humanBonusOrders: 0, aiBonusOrders: 0, graceTurns: 0, aiMinRatioMul: 1, aiEconMul: 1,
+};
+
+/** Сторона, яку веде людина проти ШІ (інакше — null: два гравці чи два ШІ, без поблажок). */
+export function humanVsAiSide(state: GameState): Side | null {
+  const c = state.config.controllers;
+  if (c.UA === 'human' && c.RU === 'ai') return 'UA';
+  if (c.RU === 'human' && c.UA === 'ai') return 'RU';
+  return null;
+}
+
+/** Параметри складності, що діють у цій партії. */
+export function difficultyParams(state: GameState): DifficultyParams {
+  const h = humanVsAiSide(state);
+  return h ? CFG.difficulty[h][state.config.difficulty] : NEUTRAL_DIFFICULTY;
+}
+
+/** Накази на тиждень: технології + поблажки складності (людині — бонус, ШІ — бонус у протилежній таблиці). */
 export function ordersFor(state: GameState, side: Side): number {
-  const human = state.config.controllers[side] === 'human' && state.config.controllers[other(side)] === 'ai';
-  return getMods(state, side).orders + (human ? CFG.difficulty[state.config.difficulty].humanBonusOrders : 0);
+  const h = humanVsAiSide(state);
+  const d = difficultyParams(state);
+  const bonus = h === null ? 0 : h === side ? d.humanBonusOrders : d.aiBonusOrders;
+  return getMods(state, side).orders + bonus;
+}
+
+/** Множник економіки сторони (виробництво, поповнення): >1 для ШІ на вищій складності проти людини. */
+export function econMul(state: GameState, side: Side): number {
+  const h = humanVsAiSide(state);
+  return h !== null && h !== side ? difficultyParams(state).aiEconMul : 1;
 }
 
 // ---------------------------------------------------------------- дата і сезон
@@ -70,26 +97,26 @@ const MONTHS_GEN = [
   'липня', 'серпня', 'вересня', 'жовтня', 'листопада', 'грудня',
 ];
 
-export function dateOfTurn(turn: number): Date {
-  const d = new Date(CFG.startDate + 'T12:00:00Z');
+export function dateOfTurn(startDate: string, turn: number): Date {
+  const d = new Date(startDate + 'T12:00:00Z');
   d.setUTCDate(d.getUTCDate() + turn * CFG.turnDays);
   return d;
 }
-export function formatDate(turn: number): string {
-  const d = dateOfTurn(turn);
+export function formatDate(state: GameState): string {
+  const d = dateOfTurn(state.startDate, state.turn);
   return `${d.getUTCDate()} ${MONTHS_GEN[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 }
-export function monthOf(turn: number): number {
-  return dateOfTurn(turn).getUTCMonth();
+export function monthOf(state: GameState): number {
+  return dateOfTurn(state.startDate, state.turn).getUTCMonth();
 }
-export function seasonName(turn: number): string {
-  return CFG.season.names[monthOf(turn)];
+export function seasonName(state: GameState): string {
+  return CFG.season.names[monthOf(state)];
 }
-export function seasonAttackMod(turn: number): number {
-  return CFG.season.attack[monthOf(turn)];
+export function seasonAttackMod(state: GameState): number {
+  return CFG.season.attack[monthOf(state)];
 }
-export function seasonEnergyMod(turn: number): number {
-  return CFG.season.energyHit[monthOf(turn)];
+export function seasonEnergyMod(state: GameState): number {
+  return CFG.season.energyHit[monthOf(state)];
 }
 
 // ---------------------------------------------------------------- належність і фронт
@@ -200,7 +227,8 @@ export function facilitiesOfType(state: GameState, owner: Owner, type: FacilityT
   return out;
 }
 
-export function meanFacilityHp(state: GameState, owner: Owner, type: FacilityType, fallback = 1): number {
+/** Середня справність об'єктів типу в області сторони; немає об'єктів — 0 (функція втрачена). */
+export function meanFacilityHp(state: GameState, owner: Owner, type: FacilityType, fallback = 0): number {
   const list = facilitiesOfType(state, owner, type);
   if (list.length === 0) return fallback;
   return list.reduce((s, f) => s + f.hp, 0) / list.length / 100;
@@ -239,6 +267,8 @@ export function energyPct(state: GameState, side: Side): number {
 export function supplyFactor(state: GameState, regionId: string): number {
   const owner = state.regions[regionId].owner;
   let worst = 1;
+  // Крим залежить від мосту: зруйнований міст послаблює його війська до −12%
+  const bridgePenalty = regionId === 'crimea' ? 0.88 + 0.12 * ((state.regions.crimea.facilities['kerch_bridge'] ?? 100) / 100) : 1;
   const check = (rid: string) => {
     if (state.regions[rid].owner !== owner) return;
     for (const f of REGION_BY_ID[rid].facilities) {
@@ -249,12 +279,12 @@ export function supplyFactor(state: GameState, regionId: string): number {
   };
   check(regionId);
   for (const n of neighborsOf(regionId)) check(n);
-  return 1 - 0.2 * (1 - worst);
+  return (1 - 0.2 * (1 - worst)) * bridgePenalty;
 }
 
 export function oilFactor(state: GameState): number {
-  const ref = meanFacilityHp(state, 'RU', 'refinery', 1);
-  const ports = meanFacilityHp(state, 'RU', 'port', 1);
+  const ref = meanFacilityHp(state, 'RU', 'refinery');
+  const ports = meanFacilityHp(state, 'RU', 'port');
   const health = 0.6 * ref + 0.4 * ports;
   return CFG.economy.oilFloor + (1 - CFG.economy.oilFloor) * health;
 }
@@ -275,13 +305,14 @@ export function incomeBreakdown(state: GameState, side: Side): Income {
   let external = 0;
   if (side === 'UA') {
     external += s.support * CFG.economy.aidPerSupport * mods.aidMul;
-    const port = meanFacilityHp(state, 'UA', 'port', 1);
+    const port = meanFacilityHp(state, 'UA', 'port');
     external += CFG.economy.seaEconBase * mods.seaEcon * 10 * port;
   } else {
     external += CFG.economy.oilBase * oilFactor(state) * (0.6 + 0.4 * (s.support / 100)) * mods.oilMul;
   }
-  const dom = Math.max(0, domestic);
-  const ext = Math.max(0, external);
+  const em = econMul(state, side);
+  const dom = Math.max(0, domestic) * em;
+  const ext = Math.max(0, external) * em;
   return { domestic: dom, external: ext, total: dom + ext };
 }
 

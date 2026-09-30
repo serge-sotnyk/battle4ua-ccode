@@ -97,9 +97,10 @@ export class GameStore {
     this.state = createGame({
       seed: cfg.seed ?? Math.floor(Math.random() * 1e9),
       difficulty: cfg.difficulty ?? 'normal',
+      scenario: cfg.scenario ?? 'oct-2026',
       controllers,
     });
-    this.settings.lastConfig = { difficulty: this.state.config.difficulty, humanSide };
+    this.settings.lastConfig = { difficulty: this.state.config.difficulty, scenario: this.state.config.scenario, humanSide };
     this.saveSettings();
     this.viewSide = humanSide === 'RU' ? 'RU' : 'UA';
     this.resetInteraction();
@@ -132,7 +133,10 @@ export class GameStore {
 
   hasSave(): boolean {
     try {
-      return !!localStorage.getItem(SAVE_KEY);
+      const raw = localStorage.getItem(SAVE_KEY);
+      if (!raw) return false;
+      const data = JSON.parse(raw) as { version?: number };
+      return data.version === GAME_VERSION;
     } catch {
       return false;
     }

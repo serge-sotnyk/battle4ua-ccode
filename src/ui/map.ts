@@ -53,6 +53,7 @@ export class MapView {
   private facs: Record<string, SVGGElement> = {};
   private fxLayer!: SVGGElement;
   private hlLayer!: SVGGElement;
+  private bridgeEl: SVGLineElement | null = null;
   private dragging = false;
   private dragMoved = false;
   private pts = new Map<number, { x: number; y: number }>();
@@ -96,6 +97,13 @@ export class MapView {
     }
     el('path', { d: map.crimeaPath, fill: 'none', stroke: '#ffffffcc', 'stroke-width': 1.6, 'vector-effect': 'non-scaling-stroke', 'pointer-events': 'none' }, svg);
 
+    // Кримський міст: ребро суміжності без спільного кордону — малюємо пунктир між областями
+    const bridge = map.edges.find((e) => e.kind === 'bridge');
+    if (bridge) {
+      const a = map.regions[bridge.a].label;
+      const b = map.regions[bridge.b].label;
+      this.bridgeEl = el('line', { x1: a[0], y1: a[1], x2: b[0], y2: b[1], stroke: '#4fd38b', 'stroke-width': 3, 'stroke-dasharray': '2 5', 'stroke-linecap': 'round', 'pointer-events': 'none', 'vector-effect': 'non-scaling-stroke' }, svg);
+    }
     this.hlLayer = el('g', { id: 'hl', 'pointer-events': 'none' }, svg);
     const gLbl = el('g', { id: 'labels' }, svg);
     for (const id of map.order) {
@@ -123,11 +131,6 @@ export class MapView {
         const title = el('title', {}, g);
         title.textContent = f.name;
         this.facs[f.id] = g;
-        g.addEventListener('click', (ev) => {
-          if (this.store.mode !== 'strike') return;
-          ev.stopPropagation();
-          this.handlers.onFacilityClick(id, f.id);
-        });
       });
     }
     this.fxLayer = el('g', { id: 'fx' }, svg);
@@ -274,8 +277,14 @@ export class MapView {
         this.svg.classList.remove('dragging');
       }
       if (wasDrag && !moved && e.type === 'pointerup') {
-        const t = document.elementFromPoint(e.clientX, e.clientY);
-        const reg = t && ((t as Element).closest?.('.region') as SVGPathElement | null);
+        // через захоплення вказівника 'click' не доходить до дочірніх елементів — шукаємо ціль самі
+        const t = document.elementFromPoint(e.clientX, e.clientY) as Element | null;
+        const fac = t?.closest?.('.fac.clickable') as SVGGElement | null;
+        if (fac && fac.dataset.region && fac.dataset.fac) {
+          this.handlers.onFacilityClick(fac.dataset.region, fac.dataset.fac);
+          return;
+        }
+        const reg = t?.closest?.('.region') as SVGPathElement | null;
         this.handlers.onRegionClick(reg && reg.dataset.id ? reg.dataset.id : '');
       }
     };
@@ -339,6 +348,11 @@ export class MapView {
       g.classList.toggle('clickable', enemyOfActive);
       const title = g.querySelector('title');
       if (title) title.textContent = `${info.def.name} — ${Math.round(hp)}%`;
+    }
+    if (this.bridgeEl) {
+      const hp = s.regions.crimea.facilities['kerch_bridge'] ?? 100;
+      this.bridgeEl.setAttribute('stroke', hpColor(hp));
+      this.bridgeEl.setAttribute('stroke-opacity', hp < 25 ? '0.45' : '0.95');
     }
     this.svg.classList.toggle('show-fac', this.store.settings.showFacilities || strike || this.zoomFactor() >= 2.0);
     const btn = document.getElementById('btn-fac');

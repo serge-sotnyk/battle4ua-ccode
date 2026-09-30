@@ -5,11 +5,12 @@ import { CFG } from './config';
 import { jitter } from './rng';
 import {
   REGION_BY_ID,
+  difficultyParams,
   edgeKind,
   getMods,
+  humanVsAiSide,
   meanFacilityHp,
   neighborsOf,
-  other,
   seasonAttackMod,
   supplyFactor,
 } from './selectors';
@@ -21,13 +22,13 @@ export function moraleFactor(state: GameState, side: Side): number {
 
 /** Паливо: якщо НПЗ зруйновані, наступ слабшає (до −25%). */
 export function fuelFactor(state: GameState, side: Side): number {
-  const ref = meanFacilityHp(state, side, 'refinery', 1);
+  const ref = meanFacilityHp(state, side, 'refinery');
   return 0.75 + 0.25 * ref;
 }
 
 export function airFactor(state: GameState, side: Side): number {
   const m = getMods(state, side);
-  const af = meanFacilityHp(state, side, 'airfield', 1);
+  const af = meanFacilityHp(state, side, 'airfield');
   const strat = side === 'RU' ? 0.75 + 0.25 * state.sides.RU.stratAir : 1;
   return 1 + m.airSupport * af * strat;
 }
@@ -45,9 +46,8 @@ export interface BattleMath {
 }
 
 function aiLossPenalty(state: GameState, side: Side): number {
-  const c = state.config.controllers;
-  if (c[side] === 'ai' && c[other(side)] === 'human') return CFG.difficulty[state.config.difficulty].aiLossMul;
-  return 1;
+  const h = humanVsAiSide(state);
+  return h !== null && h !== side ? difficultyParams(state).aiLossMul : 1;
 }
 
 export function battleMath(state: GameState, from: string, to: string, committed: number, noise: boolean): BattleMath {
@@ -64,7 +64,7 @@ export function battleMath(state: GameState, from: string, to: string, committed
     committed *
     mA.atk *
     moraleFactor(state, A) *
-    seasonAttackMod(state.turn) *
+    seasonAttackMod(state) *
     supplyFactor(state, from) *
     airFactor(state, A) *
     fuelFactor(state, A);

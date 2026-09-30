@@ -84,6 +84,8 @@ a { color: var(--ua-soft); }
 #zoomctl button:hover { border-color: var(--ua-soft); }
 #zoomctl button.on { border-color: var(--gold); background: #2a2610dd; }
 
+#legend { position: absolute; right: 12px; bottom: 40px; z-index: 4; background: #0a0f1af2; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font-size: .78rem; line-height: 1.6; max-width: 330px; }
+#legend .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-right: 6px; border: 1px solid #fff5; }
 #maptip { position: absolute; pointer-events: none; z-index: 5; background: #0a0f1af2; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font-size: .82rem; max-width: 300px; box-shadow: 0 8px 30px #000a; line-height: 1.35; }
 #maptip h4 { margin: 0 0 3px; font-size: .92rem; }
 #maptip .sub { color: var(--muted); }
@@ -171,6 +173,7 @@ hr.sep { border: 0; border-top: 1px solid var(--line); margin: 8px 0; }
 .field label { font-size: .85rem; color: var(--muted); }
 .field input[type=range] { width: 100%; accent-color: var(--ua); }
 .choice { display: grid; gap: 8px; }
+.modal.mid .choice { grid-template-columns: 1fr 1fr; }
 .choice button { text-align: left; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel2); }
 .choice button.on { border-color: var(--gold); background: #2a2610; }
 .choice button small { display: block; color: var(--muted); margin-top: 2px; }
@@ -207,5 +210,6 @@ hr.sep { border: 0; border-top: 1px solid var(--line); margin: 8px 0; }
   .abox input[type=range], .abox label.mini { display: none; }
   .btnrow.tools { grid-template-columns: 1fr 1fr; }
   .tech-cols { grid-template-columns: 1fr; }
+  .modal.mid .choice { grid-template-columns: 1fr; }
   .modal { padding: 14px; }
 }

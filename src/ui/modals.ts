@@ -12,6 +12,7 @@ import {
 } from '../engine/selectors';
 import { OPS, opAvailability, validTargets } from '../engine/ops';
 import { TECHS, activeCounters, TECH_BY_ID } from '../engine/techs';
+import { SCENARIOS } from '../engine/scenarios';
 import { territoryScore } from '../engine/victory';
 import type { ModKey, Side, TechDef, TechEffect } from '../engine/types';
 import { FAC_EFFECT, FAC_ICON, FAC_NAME, SIDE_NAME, esc, fmt1, fmtK, fmtN } from './format';
@@ -155,7 +156,7 @@ export function techModal(store: GameStore): string {
               done
                 ? '<div class="good">✔ Досліджено</div>'
                 : job
-                  ? `<div class="warn">⏳ Досліджується: ще ${job.turnsLeft} тиж. <button data-act="cancel-research" data-tech="${t.id}" style="padding:1px 8px">скасувати</button></div>`
+                  ? `<div class="warn">⏳ Досліджується: ще ${job.turnsLeft} тиж. <button data-act="cancel-research" data-tech="${t.id}" style="padding:1px 8px" title="Повертається половина вартості, прогрес втрачається">скасувати (½ вартості)</button></div>`
                   : missing.length
                     ? `<div class="meta">Потрібно: ${missing.map((m) => esc(TECH_BY_ID[m].name)).join(', ')}</div>`
                     : `<button data-act="research" data-tech="${t.id}" ${can ? '' : 'disabled'}>Дослідити</button>`
@@ -310,7 +311,7 @@ export function rulesModal(): string {
     <h2>Правила гри</h2>
     <p class="sub">Покрокова стратегія на схематичній карті Східної Європи. Один хід — один тиждень. Натхненна простою грою «Битва за Україну» (MaxD), розширена технологіями, ударами по тилу та Білоруссю.</p>
     <h3>Хід</h3>
-    <p>На тиждень у вас <b>4 накази</b> (залежно від складності людині дають ще +1 чи +2; технології можуть додати ще). Накази витрачають: <b>перекидання</b>, <b>атака</b>, <b>удар</b>, <b>укріплення</b>, <b>спецоперація</b>. Безкоштовні: дослідження, політика, ППО. Потім ходить супротивник, і настає підсумок тижня: виробництво, підкріплення, ремонт, події.</p>
+    <p>На тиждень у вас <b>4 накази</b> (залежно від складності наказів може додатися людині чи ШІ; технологія «Єдина система управління» дає ще один). Накази витрачають: <b>перекидання</b>, <b>атака</b>, <b>удар</b>, <b>укріплення</b>, <b>спецоперація</b>. Безкоштовні: дослідження, політика, ППО. Потім ходить супротивник, і настає підсумок тижня: виробництво, підкріплення, ремонт, події.</p>
     <h3>Перекидання й атака</h3>
     <p>Клацніть свою область — вона стане жовтою. Потім клацніть сусідню свою (перекидання) або ворожу (атака). Частку військ задайте внизу: 25/50/75/100% або «класичний режим» (завжди ½). Наведіть курсор на ціль — побачите прогноз бою.</p>
     <p>Бій — «лінійний Ланчестер»: втрати сторін пропорційні силі супротивника, а оборона виграє від місцевості, укріплень, річки й технологій. Область падає, коли вцілілий гарнізон став замалим порівняно з нападниками. Залишки оборонців відступають до сусідньої області.</p>
@@ -338,28 +339,40 @@ export function newGameModal(store: GameStore, hasSave: boolean, opts: { first: 
   const last = store.settings.lastConfig;
   const sideSel = last.humanSide ?? 'UA';
   const diff = last.difficulty ?? 'normal';
+  const scen = last.scenario ?? 'oct-2026';
   return `
     <h2>Битва за Україну: Лінія дронів</h2>
     <p class="sub">Покрокова стратегія: фронт, дрони, далекобійні удари по тилу, технології «меч і щит» і Білорусь. Один хід — тиждень.</p>
+    <div class="branch">Сценарій</div>
+    <div class="choice" id="ng-scen">${SCENARIOS.map((sc) => `<button data-act="ng-scen" data-v="${sc.id}" class="${scen === sc.id ? 'on' : ''}">${esc(sc.name)}<small>${esc(sc.blurb)}</small></button>`).join('')}</div>
     <div class="branch">Ваша сторона</div>
     <div class="choice" id="ng-side">
-      <button data-act="ng-side" data-v="UA" class="${sideSel === 'UA' ? 'on' : ''}">🇺🇦 Україна<small>Стартуємо в жовтні 2026: утримати Київ, звільнити окуповане, вдарити по тилу.</small></button>
+      <button data-act="ng-side" data-v="UA" class="${sideSel === 'UA' ? 'on' : ''}">🇺🇦 Україна<small>Утримати Київ, звільнити окуповане, вдарити по тилу РФ.</small></button>
       <button data-act="ng-side" data-v="RU" class="${sideSel === 'RU' ? 'on' : ''}">⬛ Росія<small>Більше людей і дешеві штурми, але крихка економіка й нафта. Мета — Київ.</small></button>
       <button data-act="ng-side" data-v="both" class="${sideSel === 'both' ? 'on' : ''}">👥 Двоє гравців (один комп’ютер)<small>По черзі, з передачею керування.</small></button>
       <button data-act="ng-side" data-v="none" class="${sideSel === 'none' ? 'on' : ''}">👁 Спостерігач<small>ШІ проти ШІ — цікаво подивитися.</small></button>
     </div>
     <div class="branch">Складність</div>
-    <div class="choice" id="ng-diff">
-      <button data-act="ng-diff" data-v="easy" class="${diff === 'easy' ? 'on' : ''}">Легка<small>Знайомство з грою: ШІ спочатку пасивний, його втрати ×1.5, вам +2 накази на тиждень.</small></button>
-      <button data-act="ng-diff" data-v="normal" class="${diff === 'normal' ? 'on' : ''}">Звичайна<small>Втрати ШІ ×1.25 (як у «звичайному режимі» оригіналу), вам +1 наказ на тиждень.</small></button>
-      <button data-act="ng-diff" data-v="hard" class="${diff === 'hard' ? 'on' : ''}">Тяжка<small>Без поблажок: ШІ б’ється на повну з першого тижня.</small></button>
-    </div>
+    <div class="choice" id="ng-diff">${(['easy', 'normal', 'hard'] as const)
+      .map((lv) => `<button data-act="ng-diff" data-v="${lv}" class="${diff === lv ? 'on' : ''}">${CFG.difficulty.UA[lv].label}<small>${diffBlurb(sideSel === 'RU' ? 'RU' : 'UA', lv)}</small></button>`)
+      .join('')}</div>
     <div class="field"><label>Зерно випадковості (необов’язково — для відтворюваних партій)</label>
       <input id="ng-seed" type="text" placeholder="випадкове" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:#0a0e18;color:inherit"></div>
     <div class="row" style="margin-top:12px;gap:10px;flex-wrap:wrap">
       <span>${hasSave ? '<button class="tbtn big" data-act="continue">Продовжити збережену</button>' : ''}</span>
       <span>${opts.first ? '' : '<button class="tbtn big" data-act="close-modal">Скасувати</button> '}<button class="tbtn primary big" data-act="ng-start">Почати гру</button></span>
     </div>`;
+}
+
+export function diffBlurb(side: 'UA' | 'RU', lv: 'easy' | 'normal' | 'hard'): string {
+  const d = CFG.difficulty[side][lv];
+  const parts: string[] = [];
+  if (d.graceTurns > 0) parts.push(`ШІ не атакує перші ${d.graceTurns} тиж.`);
+  if (d.aiLossMul !== 1) parts.push(`втрати ШІ ×${d.aiLossMul}`);
+  if (d.humanBonusOrders > 0) parts.push(`вам +${d.humanBonusOrders} ${d.humanBonusOrders === 1 ? 'наказ' : 'накази'}`);
+  if (d.aiBonusOrders > 0) parts.push(`ШІ має +${d.aiBonusOrders} ${d.aiBonusOrders === 1 ? 'наказ' : 'накази'}`);
+  if (d.aiEconMul !== 1) parts.push(`економіка ШІ ×${d.aiEconMul}`);
+  return parts.length ? parts.join('; ') + '.' : 'Без поблажок для жодної зі сторін.';
 }
 
 // ---------------------------------------------------------------- кінець гри
@@ -373,7 +386,7 @@ export function gameOverModal(store: GameStore): string {
   if (o.winner === 'draw') headline = 'Перемир’я';
   else if (humanSides.length === 1) headline = humanSides[0] === o.winner ? 'Перемога!' : 'Поразка';
   else headline = `Перемога: ${SIDE_NAME[o.winner]}`;
-  const share = `Битва за Україну: Лінія дронів — ${headline} на тижні ${s.turn + 1}. Україна тримає ${t.uaHeld}/${t.uaTotal} областей; втрати ЗСУ ${fmtK(s.sides.UA.casualties)}, РФ ${fmtK(s.sides.RU.casualties)}.`;
+  const share = `Битва за Україну: Лінія дронів — ${headline} на тижні ${o.weeks ?? s.turn + 1}. Україна тримає ${t.uaHeld}/${t.uaTotal} областей; втрати ЗСУ ${fmtK(s.sides.UA.casualties)}, РФ ${fmtK(s.sides.RU.casualties)}.`;
   return `
     <h2>${headline}</h2>
     <p class="sub">${esc(o.reason)}</p>
@@ -392,7 +405,7 @@ export function gameOverModal(store: GameStore): string {
       </div>
     </div>
     <div class="kv"><span>Областей України під контролем УА</span><span>${t.uaHeld} / ${t.uaTotal}</span></div>
-    <div class="kv"><span>Тривалість</span><span>${s.turn + 1} тиж.</span></div>
+    <div class="kv"><span>Тривалість</span><span>${o.weeks ?? s.turn + 1} тиж.</span></div>
     <div class="field"><label>Результат для поширення</label>
       <textarea readonly rows="3" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:#0a0e18;color:inherit">${esc(share)}</textarea></div>
     <div class="row" style="margin-top:10px;gap:10px;flex-wrap:wrap">

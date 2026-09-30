@@ -3,9 +3,17 @@
 
 import type { FacilityType, Terrain } from './types';
 
+export interface DifficultyParams {
+  label: string;
+  aiLossMul: number;
+  humanBonusOrders: number;
+  aiBonusOrders: number;
+  graceTurns: number;
+  aiMinRatioMul: number;
+  aiEconMul: number;
+}
+
 export const CFG = {
-  /** Перший хід — понеділок, 5 жовтня 2026. */
-  startDate: '2026-10-05',
   turnDays: 7,
   /** Ліміт партії: приблизно 3 роки → «перемир'я по лінії». */
   maxTurns: 156,
@@ -101,7 +109,7 @@ export const CFG = {
     citySupportCap: 4,
   },
 
-  repair: { perTurn: 6, bridge: 12 },
+  repair: { perTurn: 6, bridge: 6 },
 
   resilience: {
     start: { UA: 72, RU: 78 } as Record<'UA' | 'RU', number>,
@@ -136,17 +144,6 @@ export const CFG = {
     slots: 2,
   },
 
-  /**
-   * Складність. Діє лише проти людини: aiLossMul — множник втрат ШІ (як «пенальті» оригіналу),
-   * humanBonusOrders — додаткові накази людини, graceTurns — скільки тижнів ШІ не атакує,
-   * aiMinRatioMul — обережність ШІ в атаках.
-   */
-  difficulty: {
-    easy: { label: 'Легка', aiLossMul: 1.5, humanBonusOrders: 2, graceTurns: 6, aiMinRatioMul: 1.3 },
-    normal: { label: 'Звичайна', aiLossMul: 1.25, humanBonusOrders: 1, graceTurns: 2, aiMinRatioMul: 1.0 },
-    hard: { label: 'Тяжка', aiLossMul: 1.0, humanBonusOrders: 0, graceTurns: 0, aiMinRatioMul: 1.0 },
-  } as Record<'easy' | 'normal' | 'hard', { label: string; aiLossMul: number; humanBonusOrders: number; graceTurns: number; aiMinRatioMul: number }>,
-
   ad: {
     maxLevel: 4,
     /** Вартість розгортання ППО у область (PP), залежно від поточного рівня. */
@@ -159,8 +156,27 @@ export const CFG = {
     baseRisk: 0.1,
   },
 
+  /**
+   * Складність — окремо для гравця за Україну та за Росію (сторони асиметричні).
+   * Діє лише проти людини. aiLossMul — множник втрат ШІ (як «пенальті» оригіналу);
+   * humanBonusOrders / aiBonusOrders — додаткові накази; graceTurns — скільки тижнів ШІ не атакує;
+   * aiMinRatioMul — обережність ШІ в атаках; aiEconMul — множник виробництва й поповнення ШІ.
+   */
+  difficulty: {
+    UA: {
+      easy: { label: 'Легка', aiLossMul: 1.5, humanBonusOrders: 2, aiBonusOrders: 0, graceTurns: 6, aiMinRatioMul: 1.3, aiEconMul: 0.9 },
+      normal: { label: 'Звичайна', aiLossMul: 1.25, humanBonusOrders: 1, aiBonusOrders: 0, graceTurns: 2, aiMinRatioMul: 1.0, aiEconMul: 1.0 },
+      hard: { label: 'Тяжка', aiLossMul: 1.0, humanBonusOrders: 0, aiBonusOrders: 0, graceTurns: 0, aiMinRatioMul: 1.0, aiEconMul: 1.0 },
+    },
+    RU: {
+      easy: { label: 'Легка', aiLossMul: 1.15, humanBonusOrders: 1, aiBonusOrders: 1, graceTurns: 4, aiMinRatioMul: 1.15, aiEconMul: 1.1 },
+      normal: { label: 'Звичайна', aiLossMul: 1.0, humanBonusOrders: 0, aiBonusOrders: 2, graceTurns: 2, aiMinRatioMul: 1.0, aiEconMul: 1.25 },
+      hard: { label: 'Тяжка', aiLossMul: 1.0, humanBonusOrders: 0, aiBonusOrders: 3, graceTurns: 0, aiMinRatioMul: 0.9, aiEconMul: 1.5 },
+    },
+  } as Record<'UA' | 'RU', Record<'easy' | 'normal' | 'hard', DifficultyParams>>,
+
   /** Порогові значення для перемир'я за ліміту ходів (кількість областей України під контролем УА). */
-  victory: { uaWinAtTimeout: 27, ruWinAtTimeout: 17 },
+  victory: { uaWinAtTimeout: 27, ruWinAtTimeout: 15 },
 } as const;
 
 export type Cfg = typeof CFG;

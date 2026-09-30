@@ -69,6 +69,7 @@ export function validateStrike(
 ): string | null {
   const foe = other(side);
   const sd = state.sides[side];
+  if (!Number.isInteger(drones) || !Number.isInteger(missiles)) return 'Невірна кількість.';
   if (drones < 0 || missiles < 0 || drones + missiles <= 0) return 'Оберіть кількість дронів чи ракет.';
   if (drones > sd.drones) return 'Недостатньо дронів у запасі.';
   if (missiles > sd.missiles) return 'Недостатньо ракет у запасі.';
@@ -127,7 +128,7 @@ export function performStrike(state: GameState, side: Side, target: StrikeTarget
   } else {
     // удар по містах (лише РФ): шкода стійкості України, але росте підтримка партнерів
     const hits = hitsD + hitsM * 3;
-    const resHit = Math.min(CFG.strike.cityResCap, hits * CFG.strike.cityResPerHit) * seasonEnergyMod(state.turn);
+    const resHit = Math.min(CFG.strike.cityResCap, hits * CFG.strike.cityResPerHit) * seasonEnergyMod(state);
     const supHit = Math.min(CFG.strike.citySupportCap, hits * CFG.strike.citySupportPerHit);
     state.sides[foe].resilience = Math.max(0, state.sides[foe].resilience - resHit);
     state.sides[foe].support = Math.min(100, state.sides[foe].support + supHit);

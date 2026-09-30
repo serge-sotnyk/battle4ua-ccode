@@ -15,6 +15,7 @@ import {
   isFront,
   meanFacilityHp,
   oilFactor,
+  econMul,
   ordersFor,
   seasonEnergyMod,
 } from './selectors';
@@ -37,6 +38,7 @@ export function endSideTurn(state: GameState): void {
   state.ordersLeft = ordersFor(state, 'UA');
   const outcome = evaluateOutcome(state);
   if (outcome) {
+    outcome.weeks = state.turn; // тиждень щойно завершено
     state.outcome = outcome;
     pushLog(state, { side: 'world', kind: 'info', text: `Кінець гри: ${outcome.reason}` });
   }
@@ -48,10 +50,10 @@ export function upkeep(state: GameState): void {
   for (const side of SIDES) produce(state, side);
   // 2. Дослідження
   for (const side of SIDES) progressResearch(state, side);
-  // 3. Спецоперації
-  progressOps(state);
-  // 4. Ремонт, таймери
+  // 3. Ремонт і таймери (до спецоперацій: наслідки операцій діють повні N тижнів)
   repairAndTimers(state);
+  // 4. Спецоперації
+  progressOps(state);
   // 5. Підкріплення
   for (const side of SIDES) recruit(state, side);
   // 6. Білорусь
@@ -82,7 +84,7 @@ function produce(state: GameState, side: Side): void {
   s.pp += income;
   s.energy = energyPct(state, side);
 
-  const factory = 0.4 + 0.6 * meanFacilityHp(state, side, 'drone_factory', 1);
+  const factory = 0.4 + 0.6 * meanFacilityHp(state, side, 'drone_factory');
   // дрони
   if (s.allocDrones > 0) {
     const budget = Math.min(s.pp, (income * s.allocDrones) / 100);
@@ -162,7 +164,7 @@ export function recruitAmount(state: GameState, side: Side, noise = 1): number {
   if (!regions.length) return 0;
   const armyNow = regions.reduce((a, id) => a + state.regions[id].troops, 0);
   const capFactor = Math.min(1, Math.max(0.12, 1.6 * (1 - armyNow / CFG.recruit.softCap[side])));
-  let total = capFactor * CFG.recruit[side] * mods.recruit * CFG.recruit.mobilizationMul[s.mobilization] * (0.85 + 0.15 * res) * noise;
+  let total = capFactor * CFG.recruit[side] * mods.recruit * CFG.recruit.mobilizationMul[s.mobilization] * (0.85 + 0.15 * res) * noise * econMul(state, side);
   if (side === 'UA') {
     // людські ресурси України пропорційні залишку її населення
     const popAll = ALL_REGION_IDS.filter((id) => REGION_BY_ID[id].country === 'UA').reduce((a, id) => a + REGION_BY_ID[id].pop, 0);
@@ -223,7 +225,7 @@ function updateMorale(state: GameState, side: Side): void {
   if (s.resilience < 100) d += R.regen;
   d -= (s.weekCasualties / 1000) * R.perKiloCasualty;
   d += (s.weekKills / 1000) * R.perKiloKill;
-  d -= ((100 - s.energy) / 100) * R.energyDrain * seasonEnergyMod(state.turn);
+  d -= ((100 - s.energy) / 100) * R.energyDrain * seasonEnergyMod(state);
   d -= CFG.recruit.mobilizationResDrain[s.mobilization];
   if (side === 'RU') d -= (1 - oilFactor(state)) * R.oilDrain;
   if (side === 'UA' && s.support < 30) d -= 0.4;
