@@ -2,7 +2,7 @@
 
 import { CFG } from './config';
 import { REGION_DEFS } from './map/regions';
-import { getMods, invalidateMods } from './selectors';
+import { invalidateMods, ordersFor } from './selectors';
 import type { GameConfig, GameState, RegionState, Side, SideState } from './types';
 
 export const GAME_VERSION = 1;
@@ -12,10 +12,10 @@ type Start = { owner: 'UA' | 'RU' | 'BY'; troops: number; ad?: number; fort?: nu
 const START: Record<string, Start> = {
   // Україна
   volyn: { owner: 'UA', troops: 3000 },
-  rivne: { owner: 'UA', troops: 2000 },
+  rivne: { owner: 'UA', troops: 2000, ad: 1 },
   lviv: { owner: 'UA', troops: 9000, ad: 1 },
   zakarpattia: { owner: 'UA', troops: 2000 },
-  ivano: { owner: 'UA', troops: 2000 },
+  ivano: { owner: 'UA', troops: 2000, ad: 1 },
   chernivtsi: { owner: 'UA', troops: 1800 },
   ternopil: { owner: 'UA', troops: 2200 },
   khmelnytskyi: { owner: 'UA', troops: 3000, ad: 1 },
@@ -84,8 +84,8 @@ function freshSide(side: Side): SideState {
     support: ua ? CFG.support.startUA : 70,
     resilience: CFG.resilience.start[side],
     energy: 100,
-    drones: ua ? 40 : 120,
-    missiles: ua ? 4 : 24,
+    drones: ua ? 40 : 70,
+    missiles: ua ? 4 : 14,
     techs: ua ? ['fpv', 'ew', 'nets', 'lr_drones'] : ['fpv', 'ew', 'mines', 'cruise', 'shahed', 'glide_bombs'],
     research: [],
     ops: [],
@@ -142,7 +142,7 @@ export function createGame(partial: Partial<GameConfig> = {}): GameState {
     flags: {},
   };
   invalidateMods(state);
-  state.ordersLeft = getMods(state, 'UA').orders;
+  state.ordersLeft = ordersFor(state, 'UA');
   state.log.push({ turn: 0, side: 'world', kind: 'info', text: 'Початок кампанії: жовтень 2026. Тиждень — один хід.' });
   return state;
 }

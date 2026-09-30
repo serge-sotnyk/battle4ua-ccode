@@ -3,12 +3,14 @@
 import { createGame } from '../src/engine/scenario';
 import { aiPlayFullTurn } from '../src/engine/ai';
 import { CFG } from '../src/engine/config';
-import { ALL_REGION_IDS, REGION_BY_ID, formatDate, totalTroops } from '../src/engine/selectors';
+import { ALL_REGION_IDS, REGION_BY_ID, formatDate, getMods, invalidateMods, totalTroops } from '../src/engine/selectors';
 import type { GameState } from '../src/engine/types';
 
 const args = process.argv.slice(2);
 const n = Number(args.find((a) => /^\d+$/.test(a)) ?? 6);
 const verbose = args.includes('--verbose');
+// --normal: УА керує «людина» (тут — той самий ШІ), а РФ отримує штраф звичайного режиму
+const normal = args.includes('--normal');
 
 function summary(s: GameState): string {
   let uaReg = 0;
@@ -26,7 +28,13 @@ function summary(s: GameState): string {
 const results: Record<string, number> = {};
 let totalTurns = 0;
 for (let i = 0; i < n; i++) {
-  const s = createGame({ seed: 1000 + i, difficulty: 'hard', controllers: { UA: 'ai', RU: 'ai' } });
+  const s = createGame({ seed: 1000 + i, difficulty: normal ? 'normal' : 'hard', controllers: { UA: normal ? 'human' : 'ai', RU: 'ai' } });
+  if (args.includes('--boost')) {
+    // «умілий гравець»: +2 наказів на тиждень
+    s.sides.UA.effects.push({ id: 'boost', key: 'orders', value: 2, turnsLeft: 9999, label: 'boost' });
+    invalidateMods(s);
+    s.ordersLeft = getMods(s, 'UA').orders;
+  }
   const t0 = Date.now();
   while (!s.outcome) {
     aiPlayFullTurn(s, 'UA');

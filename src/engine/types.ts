@@ -215,7 +215,7 @@ export interface TechDef {
   id: string;
   name: string;
   side: Side | 'both';
-  branch: 'front' | 'strike' | 'ad' | 'econ' | 'special';
+  branch: 'front' | 'strike' | 'econ' | 'special';
   cost: number;
   turns: number;
   requires: string[];

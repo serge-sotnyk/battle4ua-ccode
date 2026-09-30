@@ -1,4 +1,5 @@
-import { writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
+mkdirSync('.debug', { recursive: true });
 import { buildMap } from '../src/engine/map/build';
 import { REGION_DEFS } from '../src/engine/map/regions';
 import { project } from '../src/engine/map/geometry';
@@ -28,12 +29,12 @@ for (let lat = 42; lat <= 61; lat += 2) {
   svg += `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" stroke="#ff0" stroke-width="0.5" opacity="0.5"/><text x="${a[0]+3}" y="${a[1]-2}" font-size="11" fill="#ff0">${lat}</text>`;
 }
 svg += '</svg>';
-writeFileSync('public/map-debug.svg', svg);
+writeFileSync('.debug/map-debug.svg', svg);
 // Крупний план України
 {
   const a = project(21.5, 53.2), b = project(41.5, 44.0);
   const vb = `${a[0]} ${a[1]} ${b[0] - a[0]} ${b[1] - a[1]}`;
-  writeFileSync('public/ua-debug.svg', svg.replace(/viewBox="[^"]+"/, `viewBox="${vb}"`).replace(/width="\d+" height="\d+"/, 'width="1400" height="1000"').replace('background:#0a1a2e', 'background:#05101c').replace(/font-size="9"/g, 'font-size="6"'));
+  writeFileSync('.debug/ua-debug.svg', svg.replace(/viewBox="[^"]+"/, `viewBox="${vb}"`).replace(/width="\d+" height="\d+"/, 'width="1400" height="1000"').replace('background:#0a1a2e', 'background:#05101c').replace(/font-size="9"/g, 'font-size="6"'));
 }
 if (process.argv.includes('--adj')) for (const id of m.order) console.log(id.padEnd(16), m.neighbors[id].join(', '));
 console.log('edges', m.edges.length);

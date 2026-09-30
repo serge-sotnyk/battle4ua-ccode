@@ -292,8 +292,9 @@ export function aiChooseOrder(state: GameState, side: Side): Order {
   const own = ALL_REGION_IDS.filter((id) => state.regions[id].owner === side);
   const aggr = side === 'RU' ? 1.0 : 0.9;
 
-  // ---- атаки
-  for (const from of own) {
+  // ---- атаки (у «звичайному» режимі ШІ дає людині кілька тижнів на підготовку)
+  const grace = state.config.difficulty === 'normal' && state.config.controllers[other(side)] === 'human' && state.turn < CFG.ai.normalGraceTurns;
+  for (const from of grace ? [] : own) {
     const r = state.regions[from];
     const spareTroops = r.troops - Math.max(plan.defNeed[from] * 0.8, CFG.minGarrison * 3);
     if (spareTroops < 300) continue;

@@ -15,6 +15,7 @@ import {
   isFront,
   meanFacilityHp,
   oilFactor,
+  ordersFor,
   seasonEnergyMod,
 } from './selectors';
 import { TECH_BY_ID } from './techs';
@@ -27,13 +28,13 @@ export function endSideTurn(state: GameState): void {
   if (state.outcome) return;
   if (state.activeSide === 'UA') {
     state.activeSide = 'RU';
-    state.ordersLeft = getMods(state, 'RU').orders;
+    state.ordersLeft = ordersFor(state, 'RU');
     return;
   }
   upkeep(state);
   state.turn += 1;
   state.activeSide = 'UA';
-  state.ordersLeft = getMods(state, 'UA').orders;
+  state.ordersLeft = ordersFor(state, 'UA');
   const outcome = evaluateOutcome(state);
   if (outcome) {
     state.outcome = outcome;
@@ -152,30 +153,31 @@ function repairAndTimers(state: GameState): void {
   }
 }
 
-function recruit(state: GameState, side: Side): void {
+/** Скільки бійців сторона отримає за тиждень (без випадкового розкиду). */
+export function recruitAmount(state: GameState, side: Side, noise = 1): number {
   const s = state.sides[side];
   const mods = getMods(state, side);
   const res = s.resilience / 100;
-  const armyNow = ALL_REGION_IDS.reduce((a, id) => a + (state.regions[id].owner === side ? state.regions[id].troops : 0), 0);
-  const capFactor = Math.min(1, Math.max(0.12, 1.6 * (1 - armyNow / CFG.recruit.softCap[side])));
-  let total =
-    capFactor *
-    CFG.recruit[side] *
-    mods.recruit *
-    CFG.recruit.mobilizationMul[s.mobilization] *
-    (0.85 + 0.15 * res) *
-    (0.95 + nextRandom(state) * 0.1);
-  // чим менше територій, тим менше людей
   const regions = ALL_REGION_IDS.filter((id) => state.regions[id].owner === side);
-  if (!regions.length) return;
-  const weights = regions.map((id) => REGION_BY_ID[id].pop * (isFront(state, id) ? CFG.recruit.frontWeight : 1));
-  const wsum = weights.reduce((a, b) => a + b, 0);
+  if (!regions.length) return 0;
+  const armyNow = regions.reduce((a, id) => a + state.regions[id].troops, 0);
+  const capFactor = Math.min(1, Math.max(0.12, 1.6 * (1 - armyNow / CFG.recruit.softCap[side])));
+  let total = capFactor * CFG.recruit[side] * mods.recruit * CFG.recruit.mobilizationMul[s.mobilization] * (0.85 + 0.15 * res) * noise;
   if (side === 'UA') {
     // людські ресурси України пропорційні залишку її населення
     const popAll = ALL_REGION_IDS.filter((id) => REGION_BY_ID[id].country === 'UA').reduce((a, id) => a + REGION_BY_ID[id].pop, 0);
     const popNow = regions.reduce((a, id) => a + (REGION_BY_ID[id].country === 'UA' ? REGION_BY_ID[id].pop : 0), 0);
     total *= 0.5 + 0.5 * (popNow / popAll);
   }
+  return total;
+}
+
+function recruit(state: GameState, side: Side): void {
+  const regions = ALL_REGION_IDS.filter((id) => state.regions[id].owner === side);
+  if (!regions.length) return;
+  const total = recruitAmount(state, side, 0.95 + nextRandom(state) * 0.1);
+  const weights = regions.map((id) => REGION_BY_ID[id].pop * (isFront(state, id) ? CFG.recruit.frontWeight : 1));
+  const wsum = weights.reduce((a, b) => a + b, 0);
   let given = 0;
   regions.forEach((id, i) => {
     const n = Math.floor((total * weights[i]) / wsum);
