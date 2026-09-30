@@ -225,11 +225,14 @@ export class MapView {
     let startX = 0;
     let startY = 0;
     svg.addEventListener('pointerdown', (e) => {
+      // лише основна кнопка (ліва/дотик): права й середня не мають «клікати» по областях
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
       svg.setPointerCapture(e.pointerId);
       this.pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
       startX = e.clientX;
       startY = e.clientY;
-      this.dragMoved = false;
+      // дотик двома пальцями — це жест масштабу, а не клік
+      this.dragMoved = this.pts.size > 1;
       this.dragging = true;
       if (this.pts.size === 2) {
         const [a, b] = [...this.pts.values()];
@@ -271,6 +274,7 @@ export class MapView {
       this.handlers.onHover(target ? target.dataset.id ?? null : null, e);
     });
     const end = (e: PointerEvent) => {
+      if (!this.pts.has(e.pointerId)) return; // pointerdown було проігноровано (права/середня кнопка)
       const moved = this.dragMoved;
       const wasDrag = this.dragging;
       this.pts.delete(e.pointerId);
@@ -287,7 +291,10 @@ export class MapView {
           return;
         }
         const reg = t?.closest?.('.region') as SVGPathElement | null;
-        this.handlers.onRegionClick(reg && reg.dataset.id ? reg.dataset.id : '');
+        // значок об'єкта, що не є ціллю, лежить над областю — клік трактуємо як клік по ній
+        const anyFac = t?.closest?.('.fac') as SVGGElement | null;
+        const id = reg?.dataset.id ?? anyFac?.dataset.region ?? '';
+        this.handlers.onRegionClick(id);
       }
     };
     svg.addEventListener('pointerup', end);

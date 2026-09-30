@@ -1,6 +1,7 @@
 // Початковий сценарій «Жовтень 2026» — стилізована, а не документальна розстановка.
 
 import { CFG } from './config';
+import { pushLog } from './log';
 import { REGION_DEFS } from './map/regions';
 import { invalidateMods, ordersFor } from './selectors';
 import { FEB_2022, SCENARIO_BY_ID, type ScenarioOverrides } from './scenarios';
@@ -149,7 +150,7 @@ export function createGame(partial: Partial<GameConfig> = {}): GameState {
   if (meta.id === 'feb-2022') applyOverrides(state, FEB_2022);
   invalidateMods(state);
   state.ordersLeft = ordersFor(state, 'UA');
-  state.log.push({ turn: 0, side: 'world', kind: 'info', text: meta.id === 'feb-2022' ? FEB_2022.intro : 'Початок кампанії: жовтень 2026. Тиждень — один хід.' });
+  pushLog(state, { side: 'world', kind: 'info', text: meta.id === 'feb-2022' ? FEB_2022.intro : 'Початок кампанії: жовтень 2026. Тиждень — один хід.' });
   return state;
 }
 

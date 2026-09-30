@@ -93,6 +93,38 @@ function recordHistory(state: GameState): void {
   if (state.history.length > 400) state.history.shift();
 }
 
+/** Випуск ударних засобів за тиждень при доході `income` (без мутацій; `ppAvailable` обмежує бюджет). */
+export function munitionOutput(
+  state: GameState,
+  side: Side,
+  income: number,
+  ppAvailable = Infinity,
+): { drones: number; missiles: number; ppDrones: number; ppMissiles: number } {
+  const s = state.sides[side];
+  const mods = getMods(state, side);
+  const factory = 0.4 + 0.6 * meanFacilityHp(state, side, 'drone_factory');
+  let drones = 0;
+  let ppDrones = 0;
+  let pp = ppAvailable;
+  if (s.allocDrones > 0) {
+    const budget = Math.min(pp, (income * s.allocDrones) / 100);
+    const unit = (CFG.munitions.droneCost * mods.droneCost) / Math.max(0.2, mods.droneYield);
+    drones = Math.max(0, Math.min(Math.floor((budget / unit) * factory), CFG.munitions.droneStockCap - s.drones));
+    ppDrones = (drones / factory) * unit;
+    pp -= ppDrones;
+  }
+  let missiles = 0;
+  let ppMissiles = 0;
+  if (s.allocMissiles > 0) {
+    const budget = Math.min(pp, (income * s.allocMissiles) / 100);
+    const strat = side === 'RU' ? 0.45 + 0.55 * s.stratAir : 1;
+    const unit = CFG.munitions.missileCost * Math.max(0.3, mods.missileCost);
+    missiles = Math.max(0, Math.min(Math.floor((budget / unit) * factory * strat), CFG.munitions.missileStockCap - s.missiles));
+    ppMissiles = (missiles / (factory * strat)) * unit;
+  }
+  return { drones, missiles, ppDrones, ppMissiles };
+}
+
 function produce(state: GameState, side: Side): void {
   const s = state.sides[side];
   const mods = getMods(state, side);
@@ -103,25 +135,10 @@ function produce(state: GameState, side: Side): void {
   s.pp += income;
   s.energy = energyPct(state, side);
 
-  const factory = 0.4 + 0.6 * meanFacilityHp(state, side, 'drone_factory');
-  // дрони
-  if (s.allocDrones > 0) {
-    const budget = Math.min(s.pp, (income * s.allocDrones) / 100);
-    const unit = (CFG.munitions.droneCost * mods.droneCost) / Math.max(0.2, mods.droneYield);
-    let n = Math.floor((budget / unit) * factory);
-    n = Math.max(0, Math.min(n, CFG.munitions.droneStockCap - s.drones));
-    s.drones += n;
-    s.pp -= (n / factory) * unit;
-  }
-  if (s.allocMissiles > 0) {
-    const budget = Math.min(s.pp, (income * s.allocMissiles) / 100);
-    const strat = side === 'RU' ? 0.45 + 0.55 * s.stratAir : 1;
-    const unit = CFG.munitions.missileCost * Math.max(0.3, mods.missileCost);
-    let n = Math.floor((budget / unit) * factory * strat);
-    n = Math.max(0, Math.min(n, CFG.munitions.missileStockCap - s.missiles));
-    s.missiles += n;
-    s.pp -= (n / (factory * strat)) * unit;
-  }
+  const out = munitionOutput(state, side, income, s.pp);
+  s.drones += out.drones;
+  s.missiles += out.missiles;
+  s.pp -= out.ppDrones + out.ppMissiles;
   if (s.pp < 0) s.pp = 0;
 }
 

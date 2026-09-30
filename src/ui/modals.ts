@@ -1,6 +1,7 @@
 // Модальні вікна: технології, політика, операції, удари, правила, нова гра, кінець гри.
 
 import { CFG } from '../engine/config';
+import { munitionOutput } from '../engine/turn';
 import { forecastStrike, strikeRanges } from '../engine/strikes';
 import {
   FACILITY_BY_ID,
@@ -37,7 +38,10 @@ export class Modals {
   constructor(root: HTMLElement) {
     this.root = root;
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && this.cur?.closable) this.userClose();
+      if (e.key === 'Escape' && this.cur?.closable) {
+        e.stopImmediatePropagation(); // щоб Esc не скасував ще й вибір області на карті
+        this.userClose();
+      }
     });
     this.root.addEventListener('mousedown', (e) => {
       if ((e.target as HTMLElement).classList.contains('veil') && this.cur?.closable) this.userClose();
@@ -194,7 +198,6 @@ export function policyModal(store: GameStore): string {
   const s = store.state;
   const side = s.activeSide;
   const sd = s.sides[side];
-  const mods = getMods(s, side);
   const inc = incomeBreakdown(s, side);
   const mobs = [
     ['Мінімальна', 'Менше бійців на тиждень (×0.55), стійкість потроху відновлюється.'],
@@ -202,8 +205,9 @@ export function policyModal(store: GameStore): string {
     ['Посилена', 'Приплив ×1.35, але стійкість падає на 0.25 щотижня.'],
     ['Повна', 'Приплив ×1.7, стійкість падає на 0.65 щотижня.'],
   ];
-  const dronesEst = ((inc.total * sd.allocDrones) / 100 / ((CFG.munitions.droneCost * mods.droneCost) / mods.droneYield)) * 0.9;
-  const missEst = ((inc.total * sd.allocMissiles) / 100 / (CFG.munitions.missileCost * mods.missileCost)) * 0.9;
+  const out = munitionOutput(s, side, inc.total);
+  const dronesEst = out.drones;
+  const missEst = out.missiles;
   return `
     <h2>Політика</h2>
     <p class="sub">Рішення, що діють щотижня. Безкоштовні — не витрачають наказів.</p>
@@ -213,9 +217,9 @@ export function policyModal(store: GameStore): string {
       .join('')}</div>
     <div class="branch">Розподіл виробництва на ударні засоби</div>
     <p class="mini">Частка тижневого доходу (${fmt1(inc.total)}), яка автоматично йде на запас. Решта накопичується для досліджень, ППО та операцій.</p>
-    <div class="field"><label>🛩 Дрони: <b id="lbl-d">${sd.allocDrones}%</b> (≈ ${fmt1(dronesEst)}/тиж, запас ${sd.drones}/${CFG.munitions.droneStockCap})</label>
+    <div class="field"><label>🛩 Дрони: <b id="lbl-d">${sd.allocDrones}%</b> (≈ ${dronesEst}/тиж, запас ${sd.drones}/${CFG.munitions.droneStockCap})</label>
       <input type="range" min="0" max="100" step="5" value="${sd.allocDrones}" data-act="alloc" data-kind="drones"></div>
-    <div class="field"><label>🚀 Ракети: <b id="lbl-m">${sd.allocMissiles}%</b> (≈ ${fmt1(missEst)}/тиж, запас ${sd.missiles}/${CFG.munitions.missileStockCap})</label>
+    <div class="field"><label>🚀 Ракети: <b id="lbl-m">${sd.allocMissiles}%</b> (≈ ${missEst}/тиж, запас ${sd.missiles}/${CFG.munitions.missileStockCap})</label>
       <input type="range" min="0" max="100" step="5" value="${sd.allocMissiles}" data-act="alloc" data-kind="missiles"></div>
     <p class="mini">Решта на тиждень: ≈ ${Math.max(0, 100 - sd.allocDrones - sd.allocMissiles)}% — у банк виробництва.</p>`;
 }
@@ -342,11 +346,17 @@ export function rulesModal(): string {
 
 // ---------------------------------------------------------------- нова гра
 
-export function newGameModal(store: GameStore, hasSave: boolean, opts: { first: boolean }): string {
-  const last = store.settings.lastConfig;
-  const sideSel = last.humanSide ?? 'UA';
-  const diff = last.difficulty ?? 'normal';
-  const scen = last.scenario ?? 'oct-2026';
+export interface NewGameChoice {
+  side: Side | 'both' | 'none';
+  diff: 'easy' | 'normal' | 'hard';
+  scen: string;
+  seed: string;
+}
+
+export function newGameModal(_store: GameStore, hasSave: boolean, opts: { first: boolean }, choice: NewGameChoice): string {
+  const sideSel = choice.side;
+  const diff = choice.diff;
+  const scen = choice.scen;
   return `
     <h2>Битва за Україну: Лінія дронів</h2>
     <p class="sub">Покрокова стратегія: фронт, дрони, далекобійні удари по тилу, технології «меч і щит» і Білорусь. Один хід — тиждень.</p>
@@ -364,7 +374,7 @@ export function newGameModal(store: GameStore, hasSave: boolean, opts: { first: 
       .map((lv) => `<button data-act="ng-diff" data-v="${lv}" class="${diff === lv ? 'on' : ''}">${CFG.difficulty.UA[lv].label}<small>${diffBlurb(sideSel === 'RU' ? 'RU' : 'UA', lv)}</small></button>`)
       .join('')}</div>
     <div class="field"><label>Зерно випадковості (необов’язково — для відтворюваних партій)</label>
-      <input id="ng-seed" type="text" placeholder="випадкове" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:#0a0e18;color:inherit"></div>
+      <input id="ng-seed" type="text" placeholder="випадкове" value="${esc(choice.seed)}" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:#0a0e18;color:inherit"></div>
     <div class="row" style="margin-top:12px;gap:10px;flex-wrap:wrap">
       <span>${hasSave ? '<button class="tbtn big" data-act="continue">Продовжити збережену</button> ' : ''}<button class="tbtn big" data-act="rules">Як грати</button></span>
       <span>${opts.first ? '' : '<button class="tbtn big" data-act="close-modal">Скасувати</button> '}<button class="tbtn primary big" data-act="ng-start">Почати гру</button></span>

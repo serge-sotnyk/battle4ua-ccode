@@ -124,6 +124,8 @@ export type Controller = 'human' | 'ai';
 
 export interface LogEntry {
   turn: number;
+  /** Наскрізний номер запису (не залежить від обрізання журналу). */
+  seq?: number;
   side: Side | 'world';
   text: string;
   kind?: 'move' | 'attack' | 'capture' | 'strike' | 'op' | 'tech' | 'event' | 'info' | 'loss';

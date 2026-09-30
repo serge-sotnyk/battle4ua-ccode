@@ -3,7 +3,8 @@ import type { GameState, LogEntry } from './types';
 const MAX_LOG = 600;
 
 export function pushLog(state: GameState, entry: Omit<LogEntry, 'turn'>): void {
-  state.log.push({ turn: state.turn, ...entry });
+  const seq = (state.flags.logSeq = (state.flags.logSeq ?? 0) + 1);
+  state.log.push({ turn: state.turn, seq, ...entry });
   if (state.log.length > MAX_LOG) state.log.splice(0, state.log.length - MAX_LOG);
 }
 

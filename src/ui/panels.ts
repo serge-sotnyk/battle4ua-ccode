@@ -22,7 +22,7 @@ import { OP_BY_ID } from '../engine/ops';
 import { territoryScore } from '../engine/victory';
 import type { Side } from '../engine/types';
 import { FAC_ICON, FAC_NAME, SIDE_ARMY, SIDE_NAME, TERRAIN_NAME, esc, fmt1, fmtK, fmtN } from './format';
-import type { GameStore } from './store';
+import { visibleLog, type GameStore } from './store';
 
 // ---------------------------------------------------------------- верхня смуга
 
@@ -190,7 +190,7 @@ function intelCard(store: GameStore): string {
 
 function logCard(store: GameStore): string {
   const s = store.state;
-  const entries = s.log.slice(-40).reverse();
+  const entries = visibleLog(s, store.viewSide).slice(-40).reverse();
   return `
   <div class="card">
     <h3>Журнал</h3>
@@ -269,7 +269,7 @@ export function tooltipHtml(store: GameStore, id: string): string {
       lines.push(`<div>${fc.captured ? '<span class="good">Область, імовірно, буде взято</span>' : 'Область не буде взято одним ударом'}</div>`);
     } else if (r.owner === s.activeSide && store.reachableFrom(sel).includes(id)) {
       const src = s.regions[sel];
-      const n = Math.floor(src.troops * store.currentFraction());
+      const n = Math.min(src.troops - CFG.minGarrison, Math.max(1, Math.floor(src.troops * store.currentFraction())));
       lines.push(`<hr class="sep"><div><b>Перекинути ≈ ${fmtN(n)} бійців</b> з «${esc(REGION_BY_ID[sel].name)}»</div>`);
     }
   }

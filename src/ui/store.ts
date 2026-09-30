@@ -6,7 +6,7 @@ import { applyOrder, attackError } from '../engine/orders';
 import { createGame, GAME_VERSION } from '../engine/scenario';
 import { estimateBattle } from '../engine/combat';
 import { CFG } from '../engine/config';
-import { REGION_BY_ID, other, reachableFriendly, distanceToNearestOwnKm, ALL_REGION_IDS } from '../engine/selectors';
+import { REGION_BY_ID, other, reachableFriendly, distanceToNearestOwnKm, ALL_REGION_IDS, getMods } from '../engine/selectors';
 import type { GameConfig, GameState, LogEntry, Order, OrderResult, Side } from '../engine/types';
 
 const SAVE_KEY = 'b4ua.save.v1';
@@ -57,7 +57,7 @@ export class GameStore {
   lastAiOrder: Order | null = null;
   /** Підсумок дій ворога за минулий тиждень (показується на початку ходу людини). */
   recap: LogEntry[] | null = null;
-  private recapFrom = 0;
+  private recapSeq = 0;
 
   private listeners = new Set<() => void>();
   private fxListeners = new Set<(e: FxEvent) => void>();
@@ -100,6 +100,8 @@ export class GameStore {
       scenario: cfg.scenario ?? 'oct-2026',
       controllers,
     });
+    this.recapSeq = (this.state.flags.logSeq ?? 0) + 1;
+    this.recap = null;
     this.settings.lastConfig = { difficulty: this.state.config.difficulty, scenario: this.state.config.scenario, humanSide };
     this.saveSettings();
     this.viewSide = humanSide === 'RU' ? 'RU' : 'UA';
@@ -120,7 +122,11 @@ export class GameStore {
       if (data.version !== GAME_VERSION || !data.state) return false;
       this.state = data.state;
       const c = this.state.config.controllers;
-      this.viewSide = c.UA === 'human' ? 'UA' : c.RU === 'human' ? 'RU' : 'UA';
+      const active = this.state.activeSide;
+      // у «двох гравцях» показуємо сторону, яка зараз ходить
+      this.viewSide = c[active] === 'human' ? active : c.UA === 'human' ? 'UA' : c.RU === 'human' ? 'RU' : 'UA';
+      this.recapSeq = (this.state.flags.logSeq ?? 0) + 1;
+      this.recap = null;
       this.resetInteraction();
       this.undoStack = [];
       this.notify();
@@ -212,6 +218,7 @@ export class GameStore {
     const side = this.state.activeSide;
     const snapshot = order.type === 'endTurn' ? null : JSON.stringify(this.state);
     const before = this.state;
+    const seqBefore = this.state.flags.logSeq ?? 0;
     const res = applyOrder(this.state, order);
     if (!res.ok) {
       if (!quiet) this.toast(res.error ?? 'Неможливо виконати наказ.', 'error');
@@ -238,7 +245,7 @@ export class GameStore {
       this.undoStack = [];
       this.selected = null;
       this.mode = 'normal';
-      this.recapFrom = this.state.log.length;
+      this.recapSeq = seqBefore + 1;
       this.recap = null;
       void this.afterEndTurn();
     }
@@ -320,7 +327,7 @@ export class GameStore {
         if (!res.ok) applyOrder(this.state, { type: 'endTurn' });
         this.lastAiOrder = order;
         if (res.ok) this.emitFx(side, order, res);
-        if (order.type === 'endTurn' || !res.ok) {
+        if (order.type === 'endTurn' || !res.ok || this.state.outcome) {
           this.save();
           if (this.isHotSeat()) break;
         }
@@ -339,9 +346,10 @@ export class GameStore {
 
   private buildRecap(): void {
     if (!this.state || this.state.outcome) return;
-    if (this.state.config.controllers[this.state.activeSide] !== 'human') return;
+    const me = this.state.activeSide;
+    if (this.state.config.controllers[me] !== 'human') return;
     const keep = new Set(['capture', 'strike', 'tech', 'event', 'op', 'attack', 'loss']);
-    const entries = this.state.log.slice(this.recapFrom).filter((e) => e.kind && keep.has(e.kind));
+    const entries = visibleLog(this.state, me).filter((e) => (e.seq ?? 0) >= this.recapSeq && e.side !== me && e.kind && keep.has(e.kind));
     this.recap = entries.length ? entries : null;
   }
 
@@ -411,6 +419,18 @@ export class GameStore {
   foe(): Side {
     return other(this.state.activeSide);
   }
+}
+
+/** Журнал, яким може скористатися сторона `me`: початок ворожих досліджень/операцій прихований без розвідки. */
+export function visibleLog(state: GameState, me: Side): LogEntry[] {
+  const foe = other(me);
+  const intel = getMods(state, me).intel;
+  return state.log.filter((e) => {
+    if (e.side !== foe) return true;
+    if (e.kind === 'tech' && e.text.startsWith('Розпочато') && intel < 1) return false;
+    if (e.kind === 'op' && e.text.startsWith('Розпочато') && intel < 2) return false;
+    return true;
+  });
 }
 
 function distToGeo(a: string, b: string): number {

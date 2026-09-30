@@ -34,6 +34,13 @@ let opsPick: { op: string; target?: string } | undefined;
 let ngSide: Side | 'both' | 'none' = 'UA';
 let ngDiff: 'easy' | 'normal' | 'hard' = 'normal';
 let ngScen = 'oct-2026';
+let ngSeed = '';
+
+const ngChoice = () => ({ side: ngSide, diff: ngDiff, scen: ngScen, seed: ngSeed });
+function captureSeed(): void {
+  const inp = $('modal-root').querySelector('#ng-seed') as HTMLInputElement | null;
+  if (inp) ngSeed = inp.value;
+}
 let shownOutcome = false;
 let lastTicker = '';
 let endConfirmUntil = 0;
@@ -65,14 +72,24 @@ function scheduleRender(): void {
   }, 0);
 }
 
+const htmlCache = new Map<string, string>();
+/** Перемальовуємо контейнер лише якщо змінився HTML: інакше клацання/перетягування «з’їдаються» під час ходу ШІ. */
+function setHtml(el: HTMLElement, html: string): boolean {
+  if (htmlCache.get(el.id) === html) return false;
+  htmlCache.set(el.id, html);
+  el.innerHTML = html;
+  return true;
+}
+
 function renderAll(): void {
   if (!store.state) return;
-  $('topbar').innerHTML = renderTopbar(store);
+  setHtml($('topbar'), renderTopbar(store));
   const side = $('side');
   const scroll = side.scrollTop;
-  side.innerHTML = renderSide(store);
-  side.scrollTop = scroll;
-  $('actionbar').innerHTML = renderActionBar(store);
+  if (setHtml(side, renderSide(store))) side.scrollTop = scroll;
+  // слайдер частки не перемальовуємо, поки його тягнуть
+  const dragging = (document.activeElement as HTMLElement | null)?.dataset?.act === 'fraction-slider';
+  if (!dragging) setHtml($('actionbar'), renderActionBar(store));
   const t = renderTicker(store);
   if (t !== lastTicker) {
     $('ticker-inner').innerHTML = t;
@@ -85,7 +102,7 @@ function renderAll(): void {
   if (store.curtain && id !== 'curtain') {
     modals.open('curtain', () => curtainModal(store), { closable: false, wide: 'narrow' });
   }
-  if (store.state.outcome && !shownOutcome) {
+  if (store.state.outcome && !shownOutcome && id !== 'newgame') {
     shownOutcome = true;
     modals.open('gameover', () => gameOverModal(store), { closable: true, wide: 'mid' });
   }
@@ -232,10 +249,13 @@ function handleAct(el: HTMLElement, type: string): void {
 
   // --- елементи, що реагують на input/change
   if (act === 'fraction-slider') {
-    if (!isInput) return;
-    store.settings.fraction = Number((el as HTMLInputElement).value) / 100;
-    store.saveSettings();
-    scheduleRender();
+    if (isInput) {
+      store.settings.fraction = Number((el as HTMLInputElement).value) / 100;
+      store.saveSettings();
+    } else if (isChange) {
+      (el as HTMLInputElement).blur();
+      scheduleRender();
+    }
     return;
   }
   if (act === 'classic') {
@@ -273,7 +293,7 @@ function handleAct(el: HTMLElement, type: string): void {
   if (act === 'op-target') {
     if (!isChange) return;
     opsPick = { op: el.dataset.op!, target: (el as HTMLSelectElement).value || undefined };
-    modals.open('ops', () => opsModal(store, opsPick));
+    modals.refresh(); // не скидаємо прокручування довгого списку
     return;
   }
   if (type !== 'click') return;
@@ -366,19 +386,23 @@ function handleAct(el: HTMLElement, type: string): void {
       break;
     }
     case 'ng-side':
+      captureSeed();
       ngSide = v as typeof ngSide;
-      modals.open('newgame', () => newGameModal(store, store.hasSave(), { first: !store.hasGame }), { closable: store.hasGame, wide: 'mid' });
+      modals.refresh();
       break;
     case 'ng-scen':
+      captureSeed();
       ngScen = v!;
-      modals.open('newgame', () => newGameModal(store, store.hasSave(), { first: !store.hasGame }), { closable: store.hasGame, wide: 'mid' });
+      modals.refresh();
       break;
     case 'ng-diff':
+      captureSeed();
       ngDiff = v as typeof ngDiff;
-      modals.open('newgame', () => newGameModal(store, store.hasSave(), { first: !store.hasGame }), { closable: store.hasGame, wide: 'mid' });
+      modals.refresh();
       break;
     case 'ng-start': {
-      const seedTxt = ($('modal-root').querySelector('#ng-seed') as HTMLInputElement | null)?.value.trim();
+      captureSeed();
+      const seedTxt = ngSeed.trim();
       const seed = seedTxt ? hashSeed(seedTxt) : undefined;
       modals.close();
       shownOutcome = false;
@@ -389,9 +413,12 @@ function handleAct(el: HTMLElement, type: string): void {
       break;
     }
     case 'continue':
+      if (!store.state && !store.loadSaved()) {
+        toast('Не вдалося завантажити збереження.', 'error');
+        break;
+      }
       modals.close();
-      shownOutcome = !!store.state?.outcome;
-      if (!store.state) store.loadSaved();
+      shownOutcome = false; // якщо партія вже завершена — покажемо підсумок
       ensureMap();
       renderAll();
       break;
@@ -460,42 +487,49 @@ document.querySelectorAll<HTMLElement>('#zoomctl button').forEach((b) => {
   });
 });
 
-// клавіатура
+// клавіатура (за фізичними клавішами `e.code`, щоб працювало й на українській розкладці)
 document.addEventListener('keydown', (e) => {
   const tag = (e.target as HTMLElement).tagName;
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
   if (!store.state) return;
-  if (modals.openId && modals.openId !== 'strike') return;
-  const k = e.key.toLowerCase();
-  if (k === ' ') {
+  if (e.ctrlKey || e.metaKey || e.altKey) return; // не перехоплюємо системні комбінації (Cmd+Z, Ctrl+F …)
+  if (modals.openId) return; // поки відкрите вікно — гарячі клавіші вимкнено (Esc обробляє саме вікно)
+  const code = e.code;
+  if (code === 'Space') {
     e.preventDefault();
-    requestEndTurn();
-  } else if (k === 'z') {
+    if (!e.repeat) requestEndTurn();
+    return;
+  }
+  const zoomKey = code === 'Equal' || code === 'NumpadAdd' || code === 'Minus' || code === 'NumpadSubtract';
+  if (e.repeat && !zoomKey) return;
+  if (code === 'KeyZ') {
     store.undo();
-  } else if (k >= '1' && k <= '4') {
-    store.settings.fraction = [0.25, 0.5, 0.75, 1][Number(k) - 1];
+  } else if (code >= 'Digit1' && code <= 'Digit4') {
+    store.settings.fraction = [0.25, 0.5, 0.75, 1][Number(code.slice(5)) - 1];
     store.settings.classicHalf = false;
     store.saveSettings();
     store.notify();
-  } else if (k === 't') {
-    modals.open('tech', () => techModal(store));
-  } else if (k === 's') {
-    store.mode = store.mode === 'strike' ? 'normal' : 'strike';
-    store.selected = null;
-    store.notify();
-  } else if (k === 'f') {
+  } else if (code === 'KeyT') {
+    if (store.isHumanTurn()) modals.open('tech', () => techModal(store));
+  } else if (code === 'KeyS') {
+    if (store.isHumanTurn()) {
+      store.mode = store.mode === 'strike' ? 'normal' : 'strike';
+      store.selected = null;
+      store.notify();
+    }
+  } else if (code === 'KeyF') {
     store.settings.showFacilities = !store.settings.showFacilities;
     store.saveSettings();
     store.notify();
-  } else if (k === 'escape') {
+  } else if (code === 'Escape') {
     store.selected = null;
     store.mode = 'normal';
     store.notify();
-  } else if (k === '+' || k === '=') {
+  } else if (code === 'Equal' || code === 'NumpadAdd') {
     mapView?.zoomBy(1.3);
-  } else if (k === '-') {
+  } else if (code === 'Minus' || code === 'NumpadSubtract') {
     mapView?.zoomBy(1 / 1.3);
-  } else if (k === '0') {
+  } else if (code === 'Digit0' || code === 'Numpad0') {
     mapView?.resetView();
   }
 });
@@ -507,13 +541,14 @@ function openNewGame(first: boolean): void {
   ngSide = (last.humanSide ?? 'UA') as typeof ngSide;
   ngDiff = (last.difficulty ?? 'normal') as typeof ngDiff;
   ngScen = last.scenario ?? 'oct-2026';
-  modals.open('newgame', () => newGameModal(store, store.hasSave(), { first }), { closable: !first, wide: 'mid' });
+  ngSeed = '';
+  modals.open('newgame', () => newGameModal(store, store.hasSave(), { first }, ngChoice()), { closable: !first, wide: 'mid' });
 }
 
 function boot(): void {
   ensureMapPlaceholder();
   if (store.hasSave() && store.loadSaved()) {
-    shownOutcome = !!store.state.outcome;
+    shownOutcome = false;
     ensureMap();
     renderAll();
   } else {
