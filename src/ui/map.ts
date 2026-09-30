@@ -1,6 +1,6 @@
 // SVG-карта: шари, масштабування/перетягування, підписи, значки об'єктів, ефекти.
 
-import { getMap, REGION_BY_ID, ALL_REGION_IDS, FACILITY_BY_ID } from '../engine/selectors';
+import { getMap, REGION_BY_ID, ALL_REGION_IDS, FACILITY_BY_ID, adjacentEnemyTroops, isFront } from '../engine/selectors';
 import type { Owner } from '../engine/types';
 import { FAC_ICON, fmtK } from './format';
 import type { FxEvent, GameStore } from './store';
@@ -51,6 +51,7 @@ export class MapView {
   private paths: Record<string, SVGPathElement> = {};
   private labels: Record<string, { troops: SVGTextElement; name: SVGTextElement; badge: SVGTextElement }> = {};
   private facs: Record<string, SVGGElement> = {};
+  private danger: Record<string, SVGCircleElement> = {};
   private fxLayer!: SVGGElement;
   private hlLayer!: SVGGElement;
   private bridgeEl: SVGLineElement | null = null;
@@ -109,6 +110,7 @@ export class MapView {
     for (const id of map.order) {
       const r = map.regions[id];
       const g = el('g', { transform: `translate(${r.label[0].toFixed(1)},${r.label[1].toFixed(1)})` }, gLbl);
+      this.danger[id] = el('circle', { class: 'danger', cx: 0, cy: 0, r: 17, display: 'none' }, g);
       const troops = el('text', { class: 'lbl dark', y: 4 }, g);
       const name = el('text', { class: 'lbl-name', y: 14 }, g);
       name.textContent = shortName(REGION_BY_ID[id].name);
@@ -329,6 +331,9 @@ export class MapView {
       if (r.fort > 0) badges.push(`⛏${r.fort}`);
       if (r.railCut > 0) badges.push('🚧');
       lbl.badge.textContent = badges.join(' ');
+      // індикатор загрози: ворог поруч сильніший за гарнізон (лише для людини й її власних областей)
+      const threatened = human && !this.store.isSpectator() && r.owner === side && isFront(s, id) && adjacentEnemyTroops(s, id) * 0.7 > r.troops * 1.15;
+      this.danger[id].setAttribute('display', threatened ? 'inline' : 'none');
     }
     // підсвітка цілей окремим шаром, щоб її не перекривали сусідні заливки
     this.hlLayer.innerHTML = '';
