@@ -6,7 +6,7 @@ import { invalidateMods, ordersFor } from './selectors';
 import { FEB_2022, SCENARIO_BY_ID, type ScenarioOverrides } from './scenarios';
 import type { GameConfig, GameState, RegionState, Side, SideState } from './types';
 
-export const GAME_VERSION = 2;
+export const GAME_VERSION = 3;
 
 type Start = { owner: 'UA' | 'RU' | 'BY'; troops: number; ad?: number; fort?: number };
 
@@ -141,6 +141,7 @@ export function createGame(partial: Partial<GameConfig> = {}): GameState {
     sides: { UA: freshSide('UA'), RU: freshSide('RU') },
     belarus: { tension: CFG.belarus.startTension, active: false },
     log: [],
+    history: [],
     ticker: ['Гра розпочалася. Україна тримає оборону, а небо над нею — «лінія дронів».'],
     outcome: null,
     flags: {},

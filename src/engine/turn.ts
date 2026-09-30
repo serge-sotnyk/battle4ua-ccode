@@ -18,6 +18,7 @@ import {
   econMul,
   ordersFor,
   seasonEnergyMod,
+  totalTroops,
 } from './selectors';
 import { TECH_BY_ID } from './techs';
 import { evaluateOutcome } from './victory';
@@ -62,7 +63,9 @@ export function upkeep(state: GameState): void {
   rollEvents(state);
   // 8. Стійкість та підтримка
   for (const side of SIDES) updateMorale(state, side);
-  // 9. Тижнева статистика скидається
+  // 9. Зріз для графіка
+  recordHistory(state);
+  // 10. Тижнева статистика скидається
   for (const side of SIDES) {
     state.sides[side].weekCasualties = 0;
     state.sides[side].weekKills = 0;
@@ -72,6 +75,22 @@ export function upkeep(state: GameState): void {
     kind: 'info',
     text: `Тиждень завершено. Виробництво: УА ${state.sides.UA.lastIncome.toFixed(1)}, РФ ${state.sides.RU.lastIncome.toFixed(1)}.`,
   });
+}
+
+function recordHistory(state: GameState): void {
+  let uaRegions = 0;
+  for (const id of ALL_REGION_IDS) {
+    if (REGION_BY_ID[id].country === 'UA' && state.regions[id].owner === 'UA') uaRegions++;
+  }
+  state.history.push({
+    week: state.turn + 1,
+    uaRegions,
+    uaTroops: totalTroops(state, 'UA'),
+    ruTroops: totalTroops(state, 'RU'),
+    uaRes: Math.round(state.sides.UA.resilience),
+    ruRes: Math.round(state.sides.RU.resilience),
+  });
+  if (state.history.length > 400) state.history.shift();
 }
 
 function produce(state: GameState, side: Side): void {

@@ -144,6 +144,15 @@ export interface GameConfig {
   scenario: string;
 }
 
+export interface HistoryPoint {
+  week: number;
+  uaRegions: number;
+  uaTroops: number;
+  ruTroops: number;
+  uaRes: number;
+  ruRes: number;
+}
+
 export interface GameState {
   version: number;
   config: GameConfig;
@@ -158,6 +167,8 @@ export interface GameState {
   sides: Record<Side, SideState>;
   belarus: BelarusState;
   log: LogEntry[];
+  /** Тижневий зріз для графіка на фінальному екрані. */
+  history: HistoryPoint[];
   ticker: string[];
   outcome: GameOutcome | null;
   /** Ходи, у яких відбувалися події «світу». */

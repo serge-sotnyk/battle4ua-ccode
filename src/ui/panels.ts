@@ -46,7 +46,7 @@ export function renderTopbar(store: GameStore): string {
   return `
     <span class="title"><span class="flag"></span>Битва за Україну<small>Лінія дронів</small></span>
     <span class="chip ${s.activeSide === 'UA' ? 'ua' : 'ru'}">${who}</span>
-    <span class="date">Тиждень <b>${s.turn + 1}</b> · <b>${formatDate(s)}</b> · ${seasonName(s)}</span>
+    <span class="date">Тиждень <b>${s.outcome?.weeks ?? s.turn + 1}</b> · <b>${formatDate(s)}</b> · ${seasonName(s)}</span>
     <span class="spacer"></span>
     ${speedBtns}
     ${store.isSpectator() ? `<button class="tbtn" data-act="pause">${store.paused ? '▶ Продовжити' : '⏸ Пауза'}</button><button class="tbtn" data-act="swap-view">Вид: ${store.viewSide === 'UA' ? 'Україна' : 'Росія'}</button>` : ''}

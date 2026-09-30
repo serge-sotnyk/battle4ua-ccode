@@ -384,6 +384,32 @@ export function diffBlurb(side: 'UA' | 'RU', lv: 'easy' | 'normal' | 'hard'): st
 
 // ---------------------------------------------------------------- кінець гри
 
+function historyChart(store: GameStore): string {
+  const h = store.state.history;
+  if (h.length < 2) return '';
+  const W = 560;
+  const H = 130;
+  const pad = 22;
+  const x = (i: number) => pad + (i / (h.length - 1)) * (W - pad * 2);
+  const line = (vals: number[], max: number, color: string) =>
+    `<polyline fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" points="${vals.map((v, i) => `${x(i).toFixed(1)},${(H - pad - (v / max) * (H - pad * 2)).toFixed(1)}`).join(' ')}"/>`;
+  const maxTroops = Math.max(...h.map((p) => Math.max(p.uaTroops, p.ruTroops)), 1);
+  return `
+    <div class="branch">Перебіг партії</div>
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;background:#0a0e18;border-radius:10px;border:1px solid var(--line)">
+      <line x1="${pad}" y1="${H - pad}" x2="${W - pad}" y2="${H - pad}" stroke="#2a3552"/>
+      ${line(h.map((p) => p.uaTroops), maxTroops, '#5a78ff55')}
+      ${line(h.map((p) => p.ruTroops), maxTroops, '#ff6e5e55')}
+      ${line(h.map((p) => p.uaRegions), 28, '#8da0ff')}
+      ${line(h.map((p) => p.uaRes), 100, '#4fd38b')}
+      <text x="${pad}" y="12" fill="#8da0ff" font-size="10">— області УА (з 28)</text>
+      <text x="${pad + 140}" y="12" fill="#4fd38b" font-size="10">— стійкість УА</text>
+      <text x="${pad + 250}" y="12" fill="#5a78ff" font-size="10">— війська УА</text>
+      <text x="${pad + 340}" y="12" fill="#ff6e5e" font-size="10">— війська РФ</text>
+      <text x="${W - pad}" y="${H - 6}" fill="#8491ac" font-size="10" text-anchor="end">тижні: ${h[0].week}–${h[h.length - 1].week}</text>
+    </svg>`;
+}
+
 export function gameOverModal(store: GameStore): string {
   const s = store.state;
   const o = s.outcome!;
@@ -411,6 +437,7 @@ export function gameOverModal(store: GameStore): string {
         <div class="kv"><span>Технології</span><span>${s.sides.RU.techs.length}</span></div>
       </div>
     </div>
+    ${historyChart(store)}
     <div class="kv"><span>Областей України під контролем УА</span><span>${t.uaHeld} / ${t.uaTotal}</span></div>
     <div class="kv"><span>Тривалість</span><span>${o.weeks ?? s.turn + 1} тиж.</span></div>
     <div class="field"><label>Результат для поширення</label>
