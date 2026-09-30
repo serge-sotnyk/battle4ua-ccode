@@ -23,6 +23,10 @@ const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) 
 
 const store = new GameStore();
 const modals = new Modals($('modal-root'));
+// закрили правила до початку першої гри — повертаємо вікно нової гри, щоб не лишати порожній екран
+modals.onUserClose = () => {
+  if (!store.hasGame) openNewGame(true);
+};
 
 let mapView: MapView | null = null;
 let strikeArgs: StrikeArgs | null = null;
@@ -298,7 +302,7 @@ function handleAct(el: HTMLElement, type: string): void {
       openNewGame(false);
       break;
     case 'close-modal':
-      modals.close();
+      modals.userClose();
       break;
     case 'strike-mode':
       store.mode = store.mode === 'strike' ? 'normal' : 'strike';

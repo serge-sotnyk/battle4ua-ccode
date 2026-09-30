@@ -43,7 +43,7 @@ a { color: var(--ua-soft); }
 
 /* ---------- макет ---------- */
 #layout { flex: 1; display: flex; min-height: 0; }
-#mapwrap { position: relative; flex: 1; min-width: 0; background: var(--sea); overflow: hidden; }
+#mapwrap { position: relative; flex: 1; min-width: 0; background: radial-gradient(ellipse at 40% 70%, #0b1d38 0%, #071427 55%, #050d1a 100%); overflow: hidden; }
 #map { width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; user-select: none; }
 #map.dragging { cursor: grabbing; }
 #side { width: 380px; max-width: 42vw; overflow-y: auto; background: var(--panel); border-left: 1px solid var(--line); padding: 10px 12px 24px; }
@@ -59,7 +59,7 @@ a { color: var(--ua-soft); }
 @keyframes dash { to { stroke-dashoffset: -24; } }
 @keyframes pulse { 50% { stroke-opacity: .45; } }
 .region.dim { opacity: .55; }
-.land { fill: var(--land); }
+.land { fill: var(--land); stroke: #39466b; stroke-width: 1; vector-effect: non-scaling-stroke; }
 .river { fill: none; stroke: #5fb8ff; stroke-opacity: .55; stroke-width: 1.4; stroke-linecap: round; pointer-events: none; }
 .lbl { pointer-events: none; font-weight: 800; text-anchor: middle; paint-order: stroke; font-size: var(--fs, 13px); font-variant-numeric: tabular-nums; }
 .lbl.dark { fill: #0a0d18; stroke: #ffffff55; stroke-width: 2px; }

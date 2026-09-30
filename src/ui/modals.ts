@@ -31,14 +31,16 @@ interface Current {
 export class Modals {
   private root: HTMLElement;
   private cur: Current | null = null;
+  /** Викликається, коли користувач сам закрив вікно (Esc, фон, ✕) — не при програмному закритті. */
+  onUserClose: (() => void) | null = null;
 
   constructor(root: HTMLElement) {
     this.root = root;
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && this.cur?.closable) this.close();
+      if (e.key === 'Escape' && this.cur?.closable) this.userClose();
     });
     this.root.addEventListener('mousedown', (e) => {
-      if ((e.target as HTMLElement).classList.contains('veil') && this.cur?.closable) this.close();
+      if ((e.target as HTMLElement).classList.contains('veil') && this.cur?.closable) this.userClose();
     });
   }
 
@@ -68,6 +70,11 @@ export class Modals {
   close(): void {
     this.cur = null;
     this.root.innerHTML = '';
+  }
+
+  userClose(): void {
+    this.close();
+    this.onUserClose?.();
   }
 }
 
@@ -359,7 +366,7 @@ export function newGameModal(store: GameStore, hasSave: boolean, opts: { first: 
     <div class="field"><label>Зерно випадковості (необов’язково — для відтворюваних партій)</label>
       <input id="ng-seed" type="text" placeholder="випадкове" style="padding:8px;border-radius:8px;border:1px solid var(--line);background:#0a0e18;color:inherit"></div>
     <div class="row" style="margin-top:12px;gap:10px;flex-wrap:wrap">
-      <span>${hasSave ? '<button class="tbtn big" data-act="continue">Продовжити збережену</button>' : ''}</span>
+      <span>${hasSave ? '<button class="tbtn big" data-act="continue">Продовжити збережену</button> ' : ''}<button class="tbtn big" data-act="rules">Як грати</button></span>
       <span>${opts.first ? '' : '<button class="tbtn big" data-act="close-modal">Скасувати</button> '}<button class="tbtn primary big" data-act="ng-start">Почати гру</button></span>
     </div>`;
 }
